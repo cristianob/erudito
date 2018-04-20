@@ -2,8 +2,10 @@ package erudito
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -64,4 +66,10 @@ func SendError(w http.ResponseWriter, status int, message string, code string) {
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+
+func InternalError(w http.ResponseWriter, err error) {
+	SendError(w, http.StatusInternalServerError, "An internal error ocourred, please contact the system administrator", "")
+	debug.PrintStack()
+	log.Println("Error: ", err.Error())
 }

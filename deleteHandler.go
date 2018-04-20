@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"reflect"
 
-	"bitbucket.org/laticin/coleta/helpers"
 	"github.com/jinzhu/gorm"
 )
 
@@ -31,7 +30,7 @@ func DeleteHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) h
 		}
 
 		if err := db.Delete(modelNew).Error; err != nil {
-			helpers.InternalError(w, err)
+			InternalError(w, err)
 			return
 		}
 
