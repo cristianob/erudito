@@ -71,4 +71,14 @@ func (m *maestro) AddModel(model Model) {
 
 		log.Println("Added route DELETE /" + model.ModelSingular() + "/{id}")
 	}
+
+	if model.AcceptCollection() {
+		m.router.
+			Methods("GET").
+			Path("/" + model.ModelPlural()).
+			Name(model.ModelSingular() + " Collection").
+			Handler(CollectionHandler(model, m.dBPoolCallback))
+
+		log.Println("Added route GET /" + model.ModelPlural())
+	}
 }

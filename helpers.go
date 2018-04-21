@@ -37,6 +37,21 @@ func MakeSingularDataStruct(dataType reflect.Type, data interface{}) interface{}
 	return sr.Interface()
 }
 
+func MakeArrayDataStruct(dataType reflect.Type, data interface{}) interface{} {
+	sfs := []reflect.StructField{
+		{
+			Name: dataType.Name(),
+			Type: reflect.SliceOf(dataType),
+			Tag:  reflect.StructTag("json:\"" + reflect.Zero(dataType).MethodByName("ModelPlural").Call([]reflect.Value{})[0].String() + "\""),
+		},
+	}
+
+	sr := reflect.ValueOf(reflect.New(reflect.StructOf(sfs)).Interface())
+	sr.Elem().Field(0).Set(reflect.ValueOf(data).Elem())
+
+	return sr.Interface()
+}
+
 func SendEmptyResponse(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 }
