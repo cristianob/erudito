@@ -1,7 +1,6 @@
 package erudito
 
 import (
-	"log"
 	"net/http"
 	"reflect"
 	"strings"
