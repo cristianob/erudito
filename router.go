@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
@@ -29,7 +30,7 @@ func (m *maestro) GetRouter() *mux.Router {
 
 func (m *maestro) AddModel(model Model) {
 	if reflect.TypeOf(model).Name() == "" || reflect.TypeOf(model).Kind() != reflect.Struct {
-		log.Panic("Added Model needs to be a direct instance, not a reference")
+		log.Panic("Added Model needs to be a direct instance of a struct, not a reference")
 	}
 
 	if model.AcceptGET() {
@@ -50,6 +51,41 @@ func (m *maestro) AddModel(model Model) {
 			Handler(PostHandler(model, m.dBPoolCallback))
 
 		log.Println("Added route POST /" + model.ModelSingular())
+
+		modelType := reflect.TypeOf(model)
+		for i := 0; i < modelType.NumField(); i++ {
+			if modelType.Field(i).Type.Kind() == reflect.Slice {
+				gormTagset := modelType.Field(i).Tag.Get("gorm")
+				if gormTagset == "" {
+					continue
+				}
+
+				gormTags := strings.Split(gormTagset, ";")
+				for _, tag := range gormTags {
+					if !strings.HasPrefix(tag, "many2many") {
+						continue
+					}
+
+					model2 := reflect.Zero(modelType.Field(i).Type.Elem()).Interface().(Model)
+
+					m.router.
+						Methods("PUT").
+						Path("/" + model.ModelSingular() + "/{id1}/" + model2.ModelSingular() + "/{id2}").
+						Name(model.ModelSingular() + " - " + model2.ModelSingular() + " Relation Add").
+						Handler(RelationAddHandler(model, model2, modelType.Field(i).Name, m.dBPoolCallback))
+
+					log.Println("Added route PUT /" + model.ModelSingular() + "/{id1}/" + model2.ModelSingular() + "/{id2}")
+
+					m.router.
+						Methods("DELETE").
+						Path("/" + model.ModelSingular() + "/{id1}/" + model2.ModelSingular() + "/{id2}").
+						Name(model.ModelSingular() + " - " + model2.ModelSingular() + " Relation Remove").
+						Handler(RelationRemoveHandler(model, model2, modelType.Field(i).Name, m.dBPoolCallback))
+
+					log.Println("Added route DELETE /" + model.ModelSingular() + "/{id1}/" + model2.ModelSingular() + "/{id2}")
+				}
+			}
+		}
 	}
 
 	if model.AcceptPUT() {

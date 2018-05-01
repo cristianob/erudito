@@ -1,90 +1,36 @@
 package erudito
 
 import (
-	"encoding/json"
-	"log"
-	"net/http"
 	"reflect"
-	"runtime/debug"
-	"strconv"
-
-	"github.com/gorilla/mux"
+	"strings"
 )
 
-func GetNumericRouteField(r *http.Request, field string) (uint, error) {
-	fieldV := mux.Vars(r)[field]
-	fieldVNumeric, err := strconv.Atoi(fieldV)
-
-	if err != nil {
-		return 0, err
+func checkIfTagExists(check string, tags string) bool {
+	stringSplit := strings.Split(tags, ";")
+	for _, tag := range stringSplit {
+		if tag == check {
+			return true
+		}
 	}
 
-	return uint(fieldVNumeric), nil
+	return false
 }
 
-func MakeSingularDataStruct(dataType reflect.Type, data interface{}) interface{} {
-	sfs := []reflect.StructField{
-		{
-			Name: dataType.Name(),
-			Type: reflect.ValueOf(data).Type(),
-			Tag:  reflect.StructTag("json:\"" + reflect.ValueOf(data).MethodByName("ModelSingular").Call([]reflect.Value{})[0].String() + "\""),
-		},
+func deepCopy(model reflect.Type, source, destination reflect.Value, excludeTag string) {
+	for i := 0; i < model.NumField(); i++ {
+
+		switch model.Field(i).Type.Kind() {
+		case reflect.Struct:
+			deepCopy(source.Field(i).Type(), source.Field(i), destination.Field(i), excludeTag)
+
+		default:
+			if !checkIfTagExists(excludeTag, model.Field(i).Tag.Get("erudito")) {
+				if len(model.Field(i).PkgPath) != 0 {
+					continue
+				}
+
+				destination.Field(i).Set(source.Field(i))
+			}
+		}
 	}
-
-	sr := reflect.ValueOf(reflect.New(reflect.StructOf(sfs)).Interface())
-	sr.Elem().Field(0).Set(reflect.ValueOf(data))
-
-	return sr.Interface()
-}
-
-func MakeArrayDataStruct(dataType reflect.Type, data interface{}) interface{} {
-	sfs := []reflect.StructField{
-		{
-			Name: dataType.Name(),
-			Type: reflect.SliceOf(dataType),
-			Tag:  reflect.StructTag("json:\"" + reflect.Zero(dataType).MethodByName("ModelPlural").Call([]reflect.Value{})[0].String() + "\""),
-		},
-	}
-
-	sr := reflect.ValueOf(reflect.New(reflect.StructOf(sfs)).Interface())
-	sr.Elem().Field(0).Set(reflect.ValueOf(data).Elem())
-
-	return sr.Interface()
-}
-
-func SendEmptyResponse(w http.ResponseWriter, status int) {
-	w.WriteHeader(status)
-}
-
-func SendData(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	response := new(JSendSuccess)
-	response.Status = "success"
-	response.Data = data
-
-	json.NewEncoder(w).Encode(response)
-}
-
-func SendError(w http.ResponseWriter, status int, message string, code string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	response := new(JSendError)
-	response.Status = "error"
-	response.Data = []JSendErrorDescription{
-		{
-			Code:    code,
-			Message: message,
-		},
-	}
-
-	json.NewEncoder(w).Encode(response)
-}
-
-func InternalError(w http.ResponseWriter, err error) {
-	SendError(w, http.StatusInternalServerError, "An internal error ocourred, please contact the system administrator", "")
-	debug.PrintStack()
-	log.Println("Error: ", err.Error())
 }

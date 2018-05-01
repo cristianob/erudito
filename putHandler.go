@@ -5,14 +5,13 @@ import (
 	"net/http"
 	"reflect"
 
-	"bitbucket.org/laticin/coleta/helpers"
 	"github.com/jinzhu/gorm"
 )
 
 func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		modelType := reflect.ValueOf(model).Type()
-		modelSend := reflect.New(modelType).Interface()
+		modelNew := reflect.New(modelType).Interface()
 		modelDB := reflect.New(modelType).Interface()
 
 		db := DBPoolCallback(r)
@@ -27,7 +26,7 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 			return
 		}
 
-		if err := json.NewDecoder(r.Body).Decode(modelSend); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(modelNew); err != nil {
 			SendError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type.", "")
 			return
 		}
@@ -37,30 +36,17 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 			return
 		}
 
-		modelDBValue := reflect.ValueOf(modelDB).Elem()
-		modelSendValue := reflect.ValueOf(modelSend).Elem()
-		for i := 0; i < modelDBValue.NumField(); i++ {
-			fieldName := modelType.Field(i).Name
+		modelDBValue := reflect.ValueOf(modelDB)
+		modelNewValue := reflect.ValueOf(modelNew)
 
-			switch modelType.Field(i).Type.Kind() {
-			case reflect.Slice:
-				modelDBValue.Field(i).Set(modelSendValue.FieldByName(fieldName))
-				break
-			default:
-				if modelType.Field(i).Name != "FullModel" && modelType.Field(i).Name != "NoDeleteModel" {
-					if modelSendValue.FieldByName(fieldName).Interface() != reflect.Zero(modelType.Field(i).Type).Interface() {
-						modelDBValue.Field(i).Set(modelSendValue.FieldByName(fieldName))
-					}
-				}
-				break
-			}
-		}
+		deepCopy(modelType, modelNewValue.Elem(), modelDBValue.Elem(), "excludePUT")
 
 		if err := db.Save(modelDB).Error; err != nil {
-			helpers.SendError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
+			SendError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
 			return
 		}
 
-		SendData(w, MakeSingularDataStruct(modelType, modelDB))
+		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelDB))
 	})
+
 }

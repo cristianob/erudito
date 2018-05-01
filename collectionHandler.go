@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"bitbucket.org/laticin/coleta/helpers"
 	"github.com/jinzhu/gorm"
 )
 
@@ -42,15 +41,9 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 				switch modelType.Field(i).Type.Kind() {
 				case reflect.String:
 					db = db.Where(fieldJSON+" LIKE ?", getField)
-					break
 
-				case reflect.Uint:
-				case reflect.Int:
+				case reflect.Int, reflect.Uint:
 					db = db.Where(fieldJSON+" = ?", getField)
-					break
-
-				default:
-					break
 				}
 			}
 		}
@@ -66,10 +59,10 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 
 		modelSlice := reflect.New(reflect.SliceOf(modelType)).Interface()
 		if err := db.Find(modelSlice).Error; err != nil {
-			helpers.SendError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")
+			SendError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")
 			return
 		}
 
-		SendData(w, MakeArrayDataStruct(modelType, modelSlice))
+		SendData(w, http.StatusOK, MakeArrayDataStruct(modelType, modelSlice))
 	})
 }

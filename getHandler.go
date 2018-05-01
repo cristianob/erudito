@@ -1,6 +1,7 @@
 package erudito
 
 import (
+	"log"
 	"net/http"
 	"reflect"
 	"strings"
@@ -39,6 +40,6 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 			return
 		}
 
-		SendData(w, MakeSingularDataStruct(modelType, modelNew))
+		SendData(w, http.StatusOK, MakeSingularDataStruct(modelType, modelNew))
 	})
 }

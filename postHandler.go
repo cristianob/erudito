@@ -17,12 +17,19 @@ func PostHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) htt
 		}
 
 		modelType := reflect.ValueOf(model).Type()
-		modelNew := reflect.New(modelType).Interface()
+		modelPostValue := reflect.New(modelType)
+		modelNewValue := reflect.New(modelType)
 
-		if err := json.NewDecoder(r.Body).Decode(modelNew); err != nil {
+		modelPost := modelPostValue.Interface()
+
+		if err := json.NewDecoder(r.Body).Decode(modelPost); err != nil {
 			SendError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type.", "")
 			return
 		}
+
+		deepCopy(modelType, modelPostValue.Elem(), modelNewValue.Elem(), "excludePOST")
+
+		modelNew := modelNewValue.Interface()
 
 		db.NewRecord(modelNew)
 		if err := db.Create(modelNew).Error; err != nil {
@@ -30,6 +37,6 @@ func PostHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) htt
 			return
 		}
 
-		SendData(w, MakeSingularDataStruct(modelType, modelNew))
+		SendData(w, http.StatusCreated, MakeSingularDataStruct(modelType, modelNew))
 	})
 }
