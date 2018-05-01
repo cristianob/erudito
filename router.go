@@ -116,5 +116,13 @@ func (m *maestro) AddModel(model Model) {
 			Handler(CollectionHandler(model, m.dBPoolCallback))
 
 		log.Println("Added route GET /" + model.ModelPlural())
+
+		m.router.
+			Methods("GET").
+			Path("/" + model.ModelPlural() + "/count").
+			Name(model.ModelSingular() + " Collection Count").
+			Handler(CollectionCountHandler(model, m.dBPoolCallback))
+
+		log.Println("Added route GET /" + model.ModelPlural() + "/count")
 	}
 }
