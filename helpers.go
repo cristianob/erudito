@@ -16,6 +16,22 @@ func checkIfTagExists(check string, tags string) bool {
 	return false
 }
 
+func getTagValues(check string, tagString string) []string {
+	stringSplit := strings.Split(tagString, ";")
+	for _, tag := range stringSplit {
+		tagSplit := strings.Split(tag, ":")
+		if len(tagSplit) != 2 {
+			return []string{}
+		}
+
+		if tagSplit[0] == check {
+			return strings.Split(tagSplit[1], ",")
+		}
+	}
+
+	return []string{}
+}
+
 func deepCopy(model reflect.Type, source, destination reflect.Value, excludeTag string) {
 	for i := 0; i < model.NumField(); i++ {
 

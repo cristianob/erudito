@@ -31,6 +31,15 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 			return
 		}
 
+		for i := 0; i < modelType.NumField(); i++ {
+			for _, prop := range getTagValues("PUT", modelType.Field(i).Tag.Get("erudito")) {
+				switch prop {
+				case "auto_remove":
+					db = db.Preload(modelType.Field(i).Name)
+				}
+			}
+		}
+
 		if notFound := db.First(modelDB, ModelIDField).RecordNotFound(); notFound {
 			SendError(w, http.StatusForbidden, "Entity desn't exists", "ENTITY_DONT_EXISTS")
 			return
@@ -38,6 +47,35 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 
 		modelDBValue := reflect.ValueOf(modelDB)
 		modelNewValue := reflect.ValueOf(modelNew)
+
+		for i := 0; i < modelType.NumField(); i++ {
+			for _, prop := range getTagValues("PUT", modelType.Field(i).Tag.Get("erudito")) {
+				switch prop {
+				case "auto_remove":
+					setDB := modelDBValue.Elem().FieldByName(modelType.Field(i).Name)
+					setNew := modelNewValue.Elem().FieldByName(modelType.Field(i).Name)
+					setDiference := []reflect.Value{}
+
+					for j := 0; j < setDB.Len(); j++ {
+						exists := false
+						for k := 0; k < setNew.Len(); k++ {
+							if setDB.Index(j).FieldByName("ID").Interface().(uint) == setNew.Index(k).FieldByName("ID").Interface().(uint) {
+								exists = true
+							}
+						}
+
+						if !exists {
+							setDiference = append(setDiference, setDB.Index(j))
+						}
+					}
+
+					for _, modelRemove := range setDiference {
+						db2 := DBPoolCallback(r)
+						db2.Delete(modelRemove.Interface())
+					}
+				}
+			}
+		}
 
 		deepCopy(modelType, modelNewValue.Elem(), modelDBValue.Elem(), "excludePUT")
 

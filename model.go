@@ -16,6 +16,8 @@ type Model interface {
 	AcceptPOST() bool
 	AcceptPUT() bool
 	AcceptDELETE() bool
+
+	ValidateFields() []FieldError
 }
 
 type FullModel struct {
