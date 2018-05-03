@@ -23,7 +23,7 @@ func PostHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) htt
 		modelPost := modelPostValue.Interface()
 
 		if err := json.NewDecoder(r.Body).Decode(modelPost); err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type.", "")
+			SendError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type: "+err.Error(), "")
 			return
 		}
 
