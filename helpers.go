@@ -66,7 +66,7 @@ func camelCase(s string, upper bool) string {
 	var prev rune
 	for _, curr := range s {
 		if curr != '_' {
-			if prev == '_' || (upper && prev == 0) {
+			if prev == '_' || (upper && prev == 0) || prev == '.' {
 				buffer = append(buffer, toUpper(curr))
 			} else {
 				buffer = append(buffer, toLower(curr))
