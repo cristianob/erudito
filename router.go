@@ -96,6 +96,24 @@ func (m *maestro) AddModel(model Model) {
 			Handler(PutHandler(model, m.dBPoolCallback))
 
 		log.Println("Added route PUT /" + model.ModelSingular() + "/{id}")
+
+		modelType := reflect.TypeOf(model)
+		for i := 0; i < modelType.NumField(); i++ {
+			if modelType.Field(i).Type.Kind() != reflect.Slice && modelType.Field(i).Type.Kind() != reflect.Struct {
+				for _, prop := range getTagValues("PUT", modelType.Field(i).Tag.Get("erudito")) {
+					switch prop {
+					case "add_micro_update":
+						m.router.
+							Methods("PUT").
+							Path("/" + model.ModelSingular() + "/{id}/" + modelType.Field(i).Tag.Get("json")).
+							Name(model.ModelSingular() + " - " + modelType.Field(i).Name + " Micro Update").
+							Handler(MicroUpdateHandler(model, modelType.Field(i).Tag.Get("json"), m.dBPoolCallback))
+
+						log.Println("Added route PUT /" + model.ModelSingular() + "/{id}/" + modelType.Field(i).Tag.Get("json"))
+					}
+				}
+			}
+		}
 	}
 
 	if model.AcceptDELETE() {
