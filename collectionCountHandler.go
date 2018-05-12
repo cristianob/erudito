@@ -57,7 +57,7 @@ func CollectionCountHandler(model Model, DBPoolCallback func(r *http.Request) *g
 			rels := strings.Split(relString[0], ",")
 
 			for _, rel := range rels {
-				db = db.Preload(UpperCamelCase(rel))
+				db = db.Preload(upperCamelCase(rel))
 			}
 		}
 

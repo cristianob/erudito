@@ -53,7 +53,7 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 			rels := strings.Split(relString[0], ",")
 
 			for _, rel := range rels {
-				db = db.Preload(UpperCamelCase(rel))
+				db = db.Preload(upperCamelCase(rel))
 			}
 		}
 

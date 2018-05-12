@@ -51,7 +51,7 @@ func deepCopy(model reflect.Type, source, destination reflect.Value, excludeTag 
 	}
 }
 
-func UpperCamelCase(s string) string {
+func upperCamelCase(s string) string {
 	return camelCase(s, true)
 }
 
