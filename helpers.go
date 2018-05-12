@@ -55,7 +55,7 @@ func upperCamelCase(s string) string {
 	return camelCase(s, true)
 }
 
-func LowerCamelCase(s string) string {
+func lowerCamelCase(s string) string {
 	return camelCase(s, false)
 }
 
