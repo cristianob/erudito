@@ -58,7 +58,7 @@ func (m *maestro) AddModel(model Model) {
 			Methods("OPTIONS").
 			Path("/" + model.ModelSingular()).
 			Name(model.ModelSingular() + " OPTION").
-			Handler(OptionHandler([]string{"POST"}))
+			Handler(OptionsHandler([]string{"POST"}))
 
 		log.Println("Added route POST /" + model.ModelSingular())
 
@@ -98,7 +98,7 @@ func (m *maestro) AddModel(model Model) {
 						Methods("OPTIONS").
 						Path("/" + model.ModelSingular() + "/{id1}/" + model2.ModelSingular() + "/{id2}").
 						Name(model.ModelSingular() + " - " + model2.ModelSingular() + " Relation OPTIONS").
-						Handler(OptionHandler([]string{"PUT", "DELETE"}))
+						Handler(OptionsHandler([]string{"PUT", "DELETE"}))
 				}
 			}
 		}
@@ -131,7 +131,7 @@ func (m *maestro) AddModel(model Model) {
 							Methods("OPTIONS").
 							Path("/" + model.ModelSingular() + "/{id}/" + modelType.Field(i).Tag.Get("json")).
 							Name(model.ModelSingular() + " - " + modelType.Field(i).Name + " Micro Update OPTIONS").
-							Handler(OptionHandler([]string{"PUT"}))
+							Handler(OptionsHandler([]string{"PUT"}))
 
 						log.Println("Added route PUT /" + model.ModelSingular() + "/{id}/" + modelType.Field(i).Tag.Get("json"))
 					}
@@ -163,7 +163,7 @@ func (m *maestro) AddModel(model Model) {
 			Methods("OPTIONS").
 			Path("/" + model.ModelPlural()).
 			Name(model.ModelSingular() + " Collection").
-			Handler(OptionHandler([]string{"GET"}))
+			Handler(OptionsHandler([]string{"GET"}))
 
 		log.Println("Added route GET /" + model.ModelPlural())
 
@@ -177,7 +177,7 @@ func (m *maestro) AddModel(model Model) {
 			Methods("OPTIONS").
 			Path("/" + model.ModelPlural() + "/count").
 			Name(model.ModelSingular() + " Collection Count").
-			Handler(OptionHandler([]string{"GET"}))
+			Handler(OptionsHandler([]string{"GET"}))
 
 		log.Println("Added route GET /" + model.ModelPlural() + "/count")
 	}
@@ -187,6 +187,6 @@ func (m *maestro) AddModel(model Model) {
 			Methods("OPTIONS").
 			Path("/" + model.ModelSingular() + "/{id}").
 			Name(model.ModelSingular() + " Model OPTIONS").
-			Handler(OptionHandler(individualMethods))
+			Handler(OptionsHandler(individualMethods))
 	}
 }

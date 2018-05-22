@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func OptionHandler(headers []string) http.HandlerFunc {
+func OptionsHandler(headers []string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Add("Access-Control-Allow-Origin", "*")
 		r.Header.Add("Access-Control-Allow-Credentials", "true")
