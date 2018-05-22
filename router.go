@@ -33,12 +33,16 @@ func (m *maestro) AddModel(model Model) {
 		log.Panic("Added Model needs to be a direct instance of a struct, not a reference")
 	}
 
+	individualMethods := []string{}
+
 	if model.AcceptGET() {
 		m.router.
 			Methods("GET").
 			Path("/" + model.ModelSingular() + "/{id}").
 			Name(model.ModelSingular() + " GET").
 			Handler(GetHandler(model, m.dBPoolCallback))
+
+		individualMethods = append(individualMethods, "GET")
 
 		log.Println("Added route GET /" + model.ModelSingular() + "/{id}")
 	}
@@ -49,6 +53,12 @@ func (m *maestro) AddModel(model Model) {
 			Path("/" + model.ModelSingular()).
 			Name(model.ModelSingular() + " POST").
 			Handler(PostHandler(model, m.dBPoolCallback))
+
+		m.router.
+			Methods("OPTIONS").
+			Path("/" + model.ModelSingular()).
+			Name(model.ModelSingular() + " OPTION").
+			Handler(OptionHandler([]string{"POST"}))
 
 		log.Println("Added route POST /" + model.ModelSingular())
 
@@ -83,6 +93,12 @@ func (m *maestro) AddModel(model Model) {
 						Handler(RelationRemoveHandler(model, model2, modelType.Field(i).Name, m.dBPoolCallback))
 
 					log.Println("Added route DELETE /" + model.ModelSingular() + "/{id1}/" + model2.ModelSingular() + "/{id2}")
+
+					m.router.
+						Methods("OPTIONS").
+						Path("/" + model.ModelSingular() + "/{id1}/" + model2.ModelSingular() + "/{id2}").
+						Name(model.ModelSingular() + " - " + model2.ModelSingular() + " Relation OPTIONS").
+						Handler(OptionHandler([]string{"PUT", "DELETE"}))
 				}
 			}
 		}
@@ -94,6 +110,8 @@ func (m *maestro) AddModel(model Model) {
 			Path("/" + model.ModelSingular() + "/{id}").
 			Name(model.ModelSingular() + " PUT").
 			Handler(PutHandler(model, m.dBPoolCallback))
+
+		individualMethods = append(individualMethods, "PUT")
 
 		log.Println("Added route PUT /" + model.ModelSingular() + "/{id}")
 
@@ -109,6 +127,12 @@ func (m *maestro) AddModel(model Model) {
 							Name(model.ModelSingular() + " - " + modelType.Field(i).Name + " Micro Update").
 							Handler(MicroUpdateHandler(model, modelType.Field(i).Tag.Get("json"), m.dBPoolCallback))
 
+						m.router.
+							Methods("OPTIONS").
+							Path("/" + model.ModelSingular() + "/{id}/" + modelType.Field(i).Tag.Get("json")).
+							Name(model.ModelSingular() + " - " + modelType.Field(i).Name + " Micro Update OPTIONS").
+							Handler(OptionHandler([]string{"PUT"}))
+
 						log.Println("Added route PUT /" + model.ModelSingular() + "/{id}/" + modelType.Field(i).Tag.Get("json"))
 					}
 				}
@@ -123,6 +147,8 @@ func (m *maestro) AddModel(model Model) {
 			Name(model.ModelSingular() + " DELETE").
 			Handler(DeleteHandler(model, m.dBPoolCallback))
 
+		individualMethods = append(individualMethods, "DELETE")
+
 		log.Println("Added route DELETE /" + model.ModelSingular() + "/{id}")
 	}
 
@@ -133,6 +159,12 @@ func (m *maestro) AddModel(model Model) {
 			Name(model.ModelSingular() + " Collection").
 			Handler(CollectionHandler(model, m.dBPoolCallback))
 
+		m.router.
+			Methods("OPTIONS").
+			Path("/" + model.ModelPlural()).
+			Name(model.ModelSingular() + " Collection").
+			Handler(OptionHandler([]string{"GET"}))
+
 		log.Println("Added route GET /" + model.ModelPlural())
 
 		m.router.
@@ -141,6 +173,20 @@ func (m *maestro) AddModel(model Model) {
 			Name(model.ModelSingular() + " Collection Count").
 			Handler(CollectionCountHandler(model, m.dBPoolCallback))
 
+		m.router.
+			Methods("OPTIONS").
+			Path("/" + model.ModelPlural() + "/count").
+			Name(model.ModelSingular() + " Collection Count").
+			Handler(OptionHandler([]string{"GET"}))
+
 		log.Println("Added route GET /" + model.ModelPlural() + "/count")
+	}
+
+	if len(individualMethods) > 0 {
+		m.router.
+			Methods("OPTIONS").
+			Path("/" + model.ModelSingular() + "/{id}").
+			Name(model.ModelSingular() + " Model OPTIONS").
+			Handler(OptionHandler(individualMethods))
 	}
 }
