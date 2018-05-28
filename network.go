@@ -114,8 +114,19 @@ func SendErrors(w http.ResponseWriter, status int, errors []JSendErrorDescriptio
 	json.NewEncoder(w).Encode(response)
 }
 
+func SendFail(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	response := new(JSendFail)
+	response.Status = "fail"
+	response.Message = message
+
+	json.NewEncoder(w).Encode(response)
+}
+
 func InternalError(w http.ResponseWriter, err error) {
-	SendError(w, http.StatusInternalServerError, "An internal error ocourred, please contact the system administrator", "")
+	SendFail(w, http.StatusInternalServerError, "An internal error ocourred, please contact the system administrator")
 	debug.PrintStack()
 	log.Println("Error: ", err.Error())
 }

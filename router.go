@@ -190,3 +190,13 @@ func (m *maestro) AddModel(model Model) {
 			Handler(OptionsHandler(individualMethods))
 	}
 }
+
+func (m *maestro) AddRoute(path, method, name string, handler func(func(r *http.Request) *gorm.DB) http.Handler) {
+	m.router.
+		Methods(method).
+		Path(path).
+		Name(name).
+		Handler(handler(m.dBPoolCallback))
+
+	log.Println("Added route " + method + " " + path)
+}
