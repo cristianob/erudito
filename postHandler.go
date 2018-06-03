@@ -27,6 +27,20 @@ func PostHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) htt
 			return
 		}
 
+		_, ok := reflect.TypeOf(model).MethodByName("BeforePOST")
+		if ok {
+			beforeGETr := reflect.ValueOf(model).MethodByName("BeforePOST").Call([]reflect.Value{
+				reflect.ValueOf(DBPoolCallback(r)),
+				reflect.ValueOf(r),
+				modelPostValue,
+			})
+
+			if !beforeGETr[0].Bool() {
+				SendError(w, http.StatusForbidden, "Cannot access this resource!", "FORBIDDEN")
+				return
+			}
+		}
+
 		if errs := modelPostValue.MethodByName("ValidateFields").Call([]reflect.Value{})[0].Interface().([]FieldError); errs != nil && len(errs) > 0 {
 			errsDescription := []JSendErrorDescription{}
 

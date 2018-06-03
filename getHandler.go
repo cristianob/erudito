@@ -13,8 +13,16 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		modelType := reflect.ValueOf(model).Type()
 		modelNew := reflect.New(modelType).Interface()
 
+		// Database connection
 		db := DBPoolCallback(r)
+		if db == nil {
+			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			return
+		}
 
+		/*
+		 * BeforeGET Handler
+		 */
 		_, ok := reflect.TypeOf(model).MethodByName("BeforeGET")
 		if ok {
 			beforeGETr := reflect.ValueOf(model).MethodByName("BeforeGET").Call([]reflect.Value{
@@ -28,17 +36,18 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 			}
 		}
 
-		if db == nil {
-			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
-			return
-		}
-
+		/*
+		 * Validation of Resource Identifier
+		 */
 		ModelIDField, err := GetNumericRouteField(r, "id")
 		if err != nil {
 			SendError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
 			return
 		}
 
+		/*
+		 * Database Search for the Resource
+		 */
 		relString, ok := r.URL.Query()["rel"]
 		if ok {
 			rels := strings.Split(relString[0], ",")
@@ -49,10 +58,13 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		}
 
 		if notFound := db.First(modelNew, ModelIDField).RecordNotFound(); notFound {
-			SendError(w, http.StatusForbidden, "Entity desn't exists", "ENTITY_DONT_EXISTS")
+			SendError(w, http.StatusNotFound, "Entity desn't exists", "ENTITY_DONT_EXISTS")
 			return
 		}
 
+		/*
+		 * BeforeGETResponse Handler
+		 */
 		_, ok = reflect.TypeOf(model).MethodByName("BeforeGETResponse")
 		if ok {
 			BeforeGETResponseR := reflect.ValueOf(model).MethodByName("BeforeGETResponse").Call([]reflect.Value{
@@ -64,6 +76,15 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 			if !BeforeGETResponseR[0].Bool() {
 				SendError(w, http.StatusForbidden, "Cannot access this resource!", "FORBIDDEN")
 				return
+			}
+		}
+
+		/*
+		 * Removal of the ExcludeGET fields
+		 */
+		for i := 0; i < modelType.NumField(); i++ {
+			if checkIfTagExists("excludeGET", modelType.Field(i).Tag.Get("erudito")) {
+				reflect.ValueOf(modelNew).Elem().Field(i).Set(reflect.Zero(modelType.Field(i).Type))
 			}
 		}
 
