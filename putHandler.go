@@ -16,18 +16,40 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 
 		db := DBPoolCallback(r)
 		if db == nil {
-			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
 
 		ModelIDField, err := GetNumericRouteField(r, "id")
 		if err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
+			SendSingleError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
 			return
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(modelNew); err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type.", "")
+			SendSingleError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type.", "")
+			return
+		}
+
+		validationErrors := []JSendErrorDescription{}
+		for i := 0; i < modelType.NumField(); i++ {
+			if len(modelType.Field(i).PkgPath) != 0 {
+				continue
+			}
+
+			beforePOSTr := reflect.ValueOf(model).MethodByName("ValidateField").Call([]reflect.Value{
+				reflect.ValueOf(modelType.Field(i).Tag.Get("json")),
+				reflect.ValueOf(modelNew).Elem().Field(i),
+				reflect.ValueOf(modelNew),
+			})
+
+			if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+				validationErrors = append(validationErrors, errs...)
+			}
+		}
+
+		if len(validationErrors) > 0 {
+			SendError(w, http.StatusForbidden, validationErrors)
 			return
 		}
 
@@ -41,7 +63,7 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		}
 
 		if notFound := db.First(modelDB, ModelIDField).RecordNotFound(); notFound {
-			SendError(w, http.StatusForbidden, "Entity desn't exists", "ENTITY_DONT_EXISTS")
+			SendSingleError(w, http.StatusForbidden, "Entity desn't exists", "ENTITY_DONT_EXISTS")
 			return
 		}
 
@@ -79,9 +101,32 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 
 		deepCopy(modelType, modelNewValue.Elem(), modelDBValue.Elem(), "excludePUT")
 
+		_, ok := reflect.TypeOf(model).MethodByName("BeforePUT")
+		if ok {
+			beforePOSTr := reflect.ValueOf(model).MethodByName("BeforePUT").Call([]reflect.Value{
+				reflect.ValueOf(DBPoolCallback(r)),
+				reflect.ValueOf(r),
+				modelNewValue,
+			})
+
+			if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+				SendError(w, http.StatusForbidden, errs)
+				return
+			}
+		}
+
 		if err := db.Save(modelDB).Error; err != nil {
-			SendError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
+			SendSingleError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
 			return
+		}
+
+		/*
+		 * Removal of the ExcludeGET fields
+		 */
+		for i := 0; i < modelType.NumField(); i++ {
+			if checkIfTagExists("excludeGET", modelType.Field(i).Tag.Get("erudito")) {
+				reflect.ValueOf(modelDB).Elem().Field(i).Set(reflect.Zero(modelType.Field(i).Type))
+			}
 		}
 
 		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelDB))

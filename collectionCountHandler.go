@@ -19,7 +19,7 @@ func CollectionCountHandler(model Model, DBPoolCallback func(r *http.Request) *g
 
 		db := DBPoolCallback(r)
 		if db == nil {
-			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
 
@@ -63,7 +63,7 @@ func CollectionCountHandler(model Model, DBPoolCallback func(r *http.Request) *g
 
 		response := new(collectionCountResponse)
 		if err := db.Model(modelNew).Count(&response.Count).Error; err != nil {
-			SendError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")
+			SendSingleError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")
 			return
 		}
 

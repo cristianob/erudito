@@ -16,7 +16,7 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		// Database connection
 		db := DBPoolCallback(r)
 		if db == nil {
-			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
 
@@ -30,8 +30,8 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 				reflect.ValueOf(r),
 			})
 
-			if !beforeGETr[0].Bool() {
-				SendError(w, http.StatusForbidden, "Cannot access this resource!", "FORBIDDEN")
+			if errs := beforeGETr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+				SendError(w, http.StatusForbidden, errs)
 				return
 			}
 		}
@@ -41,7 +41,7 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		 */
 		ModelIDField, err := GetNumericRouteField(r, "id")
 		if err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
+			SendSingleError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
 			return
 		}
 
@@ -58,7 +58,7 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		}
 
 		if notFound := db.First(modelNew, ModelIDField).RecordNotFound(); notFound {
-			SendError(w, http.StatusNotFound, "Entity desn't exists", "ENTITY_DONT_EXISTS")
+			SendSingleError(w, http.StatusNotFound, "Entity desn't exists", "ENTITY_DONT_EXISTS")
 			return
 		}
 
@@ -67,14 +67,14 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		 */
 		_, ok = reflect.TypeOf(model).MethodByName("BeforeGETResponse")
 		if ok {
-			BeforeGETResponseR := reflect.ValueOf(model).MethodByName("BeforeGETResponse").Call([]reflect.Value{
+			beforeGETResponseR := reflect.ValueOf(model).MethodByName("BeforeGETResponse").Call([]reflect.Value{
 				reflect.ValueOf(DBPoolCallback(r)),
 				reflect.ValueOf(r),
 				reflect.ValueOf(modelNew),
 			})
 
-			if !BeforeGETResponseR[0].Bool() {
-				SendError(w, http.StatusForbidden, "Cannot access this resource!", "FORBIDDEN")
+			if errs := beforeGETResponseR[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+				SendError(w, http.StatusForbidden, errs)
 				return
 			}
 		}

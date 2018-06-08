@@ -87,31 +87,24 @@ func SendData(w http.ResponseWriter, status int, data interface{}) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func SendError(w http.ResponseWriter, status int, message string, code string) {
+func SendError(w http.ResponseWriter, status int, errs []JSendErrorDescription) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 
 	response := new(JSendError)
 	response.Status = "error"
-	response.Data = []JSendErrorDescription{
-		{
-			Code:    code,
-			Message: message,
-		},
-	}
+	response.Data = errs
 
 	json.NewEncoder(w).Encode(response)
 }
 
-func SendErrors(w http.ResponseWriter, status int, errors []JSendErrorDescription) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	response := new(JSendError)
-	response.Status = "error"
-	response.Data = errors
-
-	json.NewEncoder(w).Encode(response)
+func SendSingleError(w http.ResponseWriter, status int, message string, code string) {
+	SendError(w, status, []JSendErrorDescription{
+		{
+			Code:    code,
+			Message: message,
+		},
+	})
 }
 
 func SendFail(w http.ResponseWriter, status int, message string) {

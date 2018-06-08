@@ -14,13 +14,13 @@ func DeleteHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) h
 
 		db := DBPoolCallback(r)
 		if db == nil {
-			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
 
 		ModelIDField, err := GetNumericRouteField(r, "id")
 		if err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
+			SendSingleError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
 			return
 		}
 
@@ -34,7 +34,7 @@ func DeleteHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) h
 		}
 
 		if notFound := db.First(modelNew, ModelIDField).RecordNotFound(); notFound {
-			SendError(w, http.StatusForbidden, "Entity desn't exists", "ENTITY_DONT_EXISTS")
+			SendSingleError(w, http.StatusForbidden, "Entity desn't exists", "ENTITY_DONT_EXISTS")
 			return
 		}
 

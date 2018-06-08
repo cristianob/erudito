@@ -10,61 +10,126 @@ import (
 
 func PostHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		modelType := reflect.ValueOf(model).Type()
+
+		/*
+		 * DB Connection
+		 */
 		db := DBPoolCallback(r)
 		if db == nil {
-			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
 
-		modelType := reflect.ValueOf(model).Type()
+		/*
+		 * JSON Unmarshal
+		 */
 		modelPostValue := reflect.New(modelType)
-		modelNewValue := reflect.New(modelType)
-
 		modelPost := modelPostValue.Interface()
-
 		if err := json.NewDecoder(r.Body).Decode(modelPost); err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type: "+err.Error(), "")
+			SendSingleError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type: "+err.Error(), "")
 			return
 		}
 
-		_, ok := reflect.TypeOf(model).MethodByName("BeforePOST")
-		if ok {
-			beforeGETr := reflect.ValueOf(model).MethodByName("BeforePOST").Call([]reflect.Value{
-				reflect.ValueOf(DBPoolCallback(r)),
-				reflect.ValueOf(r),
-				modelPostValue,
-			})
+		/*
+		 * Recursive Validation and Cleaning
+		 */
+		validationErrors := validateAndClear(modelType, modelPostValue, db, r)
 
-			if !beforeGETr[0].Bool() {
-				SendError(w, http.StatusForbidden, "Cannot access this resource!", "FORBIDDEN")
-				return
+		if len(validationErrors) > 0 {
+			SendError(w, http.StatusForbidden, validationErrors)
+			return
+		}
+
+		/*
+		 * Insert in DB
+		 */
+		if err := db.Create(modelPost).Error; err != nil {
+			SendSingleError(w, http.StatusForbidden, "Cannot create a new record - "+err.Error(), "ENTITY_CREATE_ERROR")
+			return
+		}
+
+		/*
+		 * Removal of the ExcludeGET fields
+		 */
+		for i := 0; i < modelType.NumField(); i++ {
+			if checkIfTagExists("excludeGET", modelType.Field(i).Tag.Get("erudito")) {
+				reflect.ValueOf(modelPost).Elem().Field(i).Set(reflect.Zero(modelType.Field(i).Type))
 			}
 		}
 
-		if errs := modelPostValue.MethodByName("ValidateFields").Call([]reflect.Value{})[0].Interface().([]FieldError); errs != nil && len(errs) > 0 {
-			errsDescription := []JSendErrorDescription{}
-
-			for _, err := range errs {
-				errsDescription = append(errsDescription, JSendErrorDescription{
-					Code:    err.FieldName,
-					Message: err.Message,
-				})
-			}
-
-			SendErrors(w, http.StatusForbidden, errsDescription)
-			return
-		}
-
-		deepCopy(modelType, modelPostValue.Elem(), modelNewValue.Elem(), "excludePOST")
-
-		modelNew := modelNewValue.Interface()
-
-		db.NewRecord(modelNew)
-		if err := db.Create(modelNew).Error; err != nil {
-			SendError(w, http.StatusForbidden, "Cannot create a new record - "+err.Error(), "ENTITY_CREATE_ERROR")
-			return
-		}
-
-		SendData(w, http.StatusCreated, MakeSingularDataStruct(modelType, modelNew))
+		SendData(w, http.StatusCreated, MakeSingularDataStruct(modelType, modelPost))
 	})
+}
+
+func validateAndClear(model reflect.Type, source reflect.Value, db *gorm.DB, r *http.Request) []JSendErrorDescription {
+	validationErrors := []JSendErrorDescription{}
+
+	for i := 0; i < model.NumField(); i++ {
+		if len(model.Field(i).PkgPath) != 0 {
+			continue
+		}
+
+		if source.Type().Kind() == reflect.Ptr {
+			source = source.Elem()
+		}
+
+		_, hasValidateField := model.MethodByName("ValidateField")
+
+		switch model.Field(i).Type.Kind() {
+		case reflect.Struct:
+			if model.Field(i).Type.Implements(reflect.TypeOf((*Model)(nil)).Elem()) {
+				validationErrors = append(validationErrors, validateAndClear(model.Field(i).Type, source.Field(i), db, r)...)
+			} else {
+				if hasValidateField {
+					beforePOSTr := source.MethodByName("ValidateField").Call([]reflect.Value{
+						reflect.ValueOf(model.Field(i).Tag.Get("json")),
+						source.Field(i),
+						source.Addr(),
+					})
+
+					if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+						validationErrors = append(validationErrors, errs...)
+					}
+				}
+			}
+
+		case reflect.Slice:
+			for j := 0; j < source.Field(i).Len(); j++ {
+				validationErrors = append(validationErrors, validateAndClear(reflect.TypeOf(source.Field(i).Index(j)), source.Field(i).Index(j), db, r)...)
+			}
+
+		default:
+			if checkIfTagExists("excludePOST", model.Field(i).Tag.Get("erudito")) {
+				source.Field(i).Set(reflect.Zero(model.Field(i).Type))
+			} else {
+				if hasValidateField {
+					beforePOSTr := source.MethodByName("ValidateField").Call([]reflect.Value{
+						reflect.ValueOf(model.Field(i).Tag.Get("json")),
+						source.Field(i),
+						source.Addr(),
+					})
+
+					if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+						validationErrors = append(validationErrors, errs...)
+					}
+				}
+			}
+		}
+	}
+
+	_, hasBeforePOST := model.MethodByName("BeforePOST")
+	if hasBeforePOST {
+		beforePOSTr := source.MethodByName("BeforePOST").Call([]reflect.Value{
+			reflect.ValueOf(db),
+			reflect.ValueOf(r),
+			source.Addr(),
+		})
+
+		if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+			validationErrors = append(validationErrors, errs...)
+		}
+	}
+
+	return validationErrors
 }

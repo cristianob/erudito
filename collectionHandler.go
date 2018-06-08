@@ -15,7 +15,7 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 
 		db := DBPoolCallback(r)
 		if db == nil {
-			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
 
@@ -59,7 +59,7 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 
 		modelSlice := reflect.New(reflect.SliceOf(modelType)).Interface()
 		if err := db.Find(modelSlice).Error; err != nil {
-			SendError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")
+			SendSingleError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")
 			return
 		}
 

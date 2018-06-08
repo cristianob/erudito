@@ -17,34 +17,34 @@ func RelationRemoveHandler(model1, model2 Model, fieldName string, DBPoolCallbac
 
 		db := DBPoolCallback(r)
 		if db == nil {
-			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
 
 		Model1IDField, err := GetNumericRouteField(r, "id1")
 		if err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "First entity ID is invalid", "ENTITY_ID_INVALID")
+			SendSingleError(w, http.StatusUnprocessableEntity, "First entity ID is invalid", "ENTITY_ID_INVALID")
 			return
 		}
 
 		Model2IDField, err := GetNumericRouteField(r, "id2")
 		if err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "Second entity ID is invalid", "ENTITY_ID_INVALID")
+			SendSingleError(w, http.StatusUnprocessableEntity, "Second entity ID is invalid", "ENTITY_ID_INVALID")
 			return
 		}
 
 		if notFound := db.First(model1DB, Model1IDField).RecordNotFound(); notFound {
-			SendError(w, http.StatusForbidden, "First entity desn't exists", "ENTITY_DONT_EXISTS")
+			SendSingleError(w, http.StatusForbidden, "First entity desn't exists", "ENTITY_DONT_EXISTS")
 			return
 		}
 
 		if notFound := db.First(model2DB, Model2IDField).RecordNotFound(); notFound {
-			SendError(w, http.StatusForbidden, "Second entity desn't exists", "ENTITY_DONT_EXISTS")
+			SendSingleError(w, http.StatusForbidden, "Second entity desn't exists", "ENTITY_DONT_EXISTS")
 			return
 		}
 
 		if err := db.Model(model1DB).Association(fieldName).Delete(model2DB).Error; err != nil {
-			SendError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
+			SendSingleError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
 			return
 		}
 

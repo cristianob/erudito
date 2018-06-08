@@ -20,28 +20,42 @@ func MicroUpdateHandler(model Model, field string, DBPoolCallback func(r *http.R
 
 		db := DBPoolCallback(r)
 		if db == nil {
-			SendError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
 
 		ModelIDField, err := GetNumericRouteField(r, "id")
 		if err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
+			SendSingleError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
 			return
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&modelNew); err != nil {
-			SendError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type.", "")
+			SendSingleError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type.", "")
 			return
 		}
 
 		if notFound := db.First(modelDB, ModelIDField).RecordNotFound(); notFound {
-			SendError(w, http.StatusForbidden, "Entity desn't exists", "ENTITY_DONT_EXISTS")
+			SendSingleError(w, http.StatusForbidden, "Entity desn't exists", "ENTITY_DONT_EXISTS")
 			return
 		}
 
+		_, ok := reflect.TypeOf(model).MethodByName("ValidateField")
+		if ok {
+			beforePOSTr := reflect.ValueOf(model).MethodByName("ValidateField").Call([]reflect.Value{
+				reflect.ValueOf(field),
+				reflect.ValueOf(modelNew.Value),
+				reflect.ValueOf(modelDB),
+			})
+
+			if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+				SendError(w, http.StatusForbidden, errs)
+				return
+			}
+		}
+
 		if err := db.Model(modelDB).Update(field, modelNew.Value).Error; err != nil {
-			SendError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
+			SendSingleError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
 			return
 		}
 
