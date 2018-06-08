@@ -37,14 +37,16 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 				continue
 			}
 
-			beforePOSTr := reflect.ValueOf(model).MethodByName("ValidateField").Call([]reflect.Value{
-				reflect.ValueOf(modelType.Field(i).Tag.Get("json")),
-				reflect.ValueOf(modelNew).Elem().Field(i),
-				reflect.ValueOf(modelNew),
-			})
+			if !checkIfTagExists("excludePUT", modelType.Field(i).Tag.Get("erudito")) {
+				beforePOSTr := reflect.ValueOf(model).MethodByName("ValidateField").Call([]reflect.Value{
+					reflect.ValueOf(modelType.Field(i).Tag.Get("json")),
+					reflect.ValueOf(modelNew).Elem().Field(i),
+					reflect.ValueOf(modelNew),
+				})
 
-			if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
-				validationErrors = append(validationErrors, errs...)
+				if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+					validationErrors = append(validationErrors, errs...)
+				}
 			}
 		}
 
@@ -103,13 +105,13 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 
 		_, ok := reflect.TypeOf(model).MethodByName("BeforePUT")
 		if ok {
-			beforePOSTr := reflect.ValueOf(model).MethodByName("BeforePUT").Call([]reflect.Value{
+			beforePUT := reflect.ValueOf(model).MethodByName("BeforePUT").Call([]reflect.Value{
 				reflect.ValueOf(DBPoolCallback(r)),
 				reflect.ValueOf(r),
-				modelNewValue,
+				modelDBValue,
 			})
 
-			if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+			if errs := beforePUT[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
 				SendError(w, http.StatusForbidden, errs)
 				return
 			}

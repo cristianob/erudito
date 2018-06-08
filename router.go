@@ -188,6 +188,20 @@ func (m *maestro) AddModel(model Model) {
 			Name(model.ModelSingular() + " Model OPTIONS").
 			Handler(OptionsHandler(individualMethods))
 	}
+
+	m.router.
+		Methods("GET").
+		Path("/health").
+		Name("HealthCheck").
+		Handler(HealthCheckHandler(m.dBPoolCallback))
+
+	m.router.
+		Methods("OPTIONS").
+		Path("/health").
+		Name("HealthCheck OPTIONS").
+		Handler(OptionsHandler([]string{"GET"}))
+
+	log.Println("Added route GET /health")
 }
 
 func (m *maestro) AddRoute(path, method, name string, handler func(func(r *http.Request) *gorm.DB) http.Handler) {

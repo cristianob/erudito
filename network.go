@@ -57,7 +57,7 @@ func MakeSingularDataStruct(dataType reflect.Type, data interface{}) interface{}
 	return sr.Interface()
 }
 
-func MakeArrayDataStruct(dataType reflect.Type, data interface{}) interface{} {
+func MakeArrayDataStruct(dataType reflect.Type, data reflect.Value) interface{} {
 	sfs := []reflect.StructField{
 		{
 			Name: dataType.Name(),
@@ -67,7 +67,8 @@ func MakeArrayDataStruct(dataType reflect.Type, data interface{}) interface{} {
 	}
 
 	sr := reflect.ValueOf(reflect.New(reflect.StructOf(sfs)).Interface())
-	sr.Elem().Field(0).Set(reflect.ValueOf(data).Elem())
+
+	sr.Elem().Field(0).Set(data)
 
 	return sr.Interface()
 }

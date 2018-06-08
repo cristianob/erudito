@@ -38,6 +38,20 @@ func DeleteHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) h
 			return
 		}
 
+		_, ok := reflect.TypeOf(model).MethodByName("BeforeDELETE")
+		if ok {
+			beforeDELETE := reflect.ValueOf(model).MethodByName("BeforeDELETE").Call([]reflect.Value{
+				reflect.ValueOf(DBPoolCallback(r)),
+				reflect.ValueOf(r),
+				reflect.ValueOf(modelNew),
+			})
+
+			if errs := beforeDELETE[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+				SendError(w, http.StatusForbidden, errs)
+				return
+			}
+		}
+
 		modelNewValue := reflect.ValueOf(modelNew)
 
 		for i := 0; i < modelType.NumField(); i++ {

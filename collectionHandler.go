@@ -57,12 +57,39 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 			}
 		}
 
-		modelSlice := reflect.New(reflect.SliceOf(modelType)).Interface()
-		if err := db.Find(modelSlice).Error; err != nil {
+		modelSlice := reflect.New(reflect.SliceOf(modelType))
+		if err := db.Find(modelSlice.Interface()).Error; err != nil {
 			SendSingleError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")
 			return
 		}
 
-		SendData(w, http.StatusOK, MakeArrayDataStruct(modelType, modelSlice))
+		/*
+		 * Removal of the ExcludeGET fields
+		 */
+		modelSliceRemoved := reflect.New(reflect.SliceOf(modelType)).Elem()
+		for el := 0; el < modelSlice.Elem().Len(); el++ {
+			_, ok = reflect.TypeOf(model).MethodByName("BeforeCollectionResponse")
+			if ok {
+				beforeCollectionResponse := modelSlice.Elem().Index(el).MethodByName("BeforeCollectionResponse").Call([]reflect.Value{
+					reflect.ValueOf(DBPoolCallback(r)),
+					reflect.ValueOf(r),
+					modelSlice.Elem().Index(el).Addr(),
+				})
+
+				if beforeCollectionResponse[0].Interface().(bool) {
+					modelSliceRemoved.Set(reflect.Append(modelSliceRemoved, modelSlice.Elem().Index(el)))
+				}
+			}
+		}
+
+		for el := 0; el < modelSliceRemoved.Len(); el++ {
+			for i := 0; i < modelType.NumField(); i++ {
+				if checkIfTagExists("excludeGET", modelType.Field(i).Tag.Get("erudito")) {
+					modelSliceRemoved.Index(el).Field(i).Set(reflect.Zero(modelType.Field(i).Type))
+				}
+			}
+		}
+
+		SendData(w, http.StatusOK, MakeArrayDataStruct(modelType, modelSliceRemoved))
 	})
 }
