@@ -211,5 +211,11 @@ func (m *maestro) AddRoute(path, method, name string, handler func(func(r *http.
 		Name(name).
 		Handler(handler(m.dBPoolCallback))
 
+	m.router.
+		Methods("OPTIONS").
+		Path(path).
+		Name(name + " OPTIONS").
+		Handler(OptionsHandler([]string{method}))
+
 	log.Println("Added route " + method + " " + path)
 }
