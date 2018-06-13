@@ -78,6 +78,12 @@ func DeleteHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) h
 			return
 		}
 
+		w.Header().Add("Access-Control-Allow-Origin", "*")
+		w.Header().Add("Access-Control-Allow-Credentials", "true")
+		w.Header().Add("Access-Control-Allow-Methods", "DELETE")
+		w.Header().Add("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization")
+		w.Header().Add("Access-Control-Max-Age", "1728000")
+
 		SendEmptyResponse(w, http.StatusOK)
 	})
 }

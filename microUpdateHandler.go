@@ -59,6 +59,12 @@ func MicroUpdateHandler(model Model, field string, DBPoolCallback func(r *http.R
 			return
 		}
 
+		w.Header().Add("Access-Control-Allow-Origin", "*")
+		w.Header().Add("Access-Control-Allow-Credentials", "true")
+		w.Header().Add("Access-Control-Allow-Methods", "PUT")
+		w.Header().Add("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization")
+		w.Header().Add("Access-Control-Max-Age", "1728000")
+
 		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelDB))
 	})
 
