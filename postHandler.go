@@ -10,6 +10,8 @@ import (
 
 func PostHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		AddCORSHeaders(w, "POST")
+
 		modelType := reflect.ValueOf(model).Type()
 
 		/*
@@ -57,12 +59,6 @@ func PostHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) htt
 				reflect.ValueOf(modelPost).Elem().Field(i).Set(reflect.Zero(modelType.Field(i).Type))
 			}
 		}
-
-		w.Header().Add("Access-Control-Allow-Origin", "*")
-		w.Header().Add("Access-Control-Allow-Credentials", "true")
-		w.Header().Add("Access-Control-Allow-Methods", "POST")
-		w.Header().Add("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization")
-		w.Header().Add("Access-Control-Max-Age", "1728000")
 
 		SendData(w, http.StatusCreated, MakeSingularDataStruct(modelType, modelPost))
 	})

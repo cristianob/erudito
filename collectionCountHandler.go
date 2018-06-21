@@ -14,6 +14,8 @@ type collectionCountResponse struct {
 
 func CollectionCountHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		AddCORSHeaders(w, "GET")
+
 		modelType := reflect.ValueOf(model).Type()
 		modelNew := reflect.New(modelType).Interface()
 
@@ -66,12 +68,6 @@ func CollectionCountHandler(model Model, DBPoolCallback func(r *http.Request) *g
 			SendSingleError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")
 			return
 		}
-
-		w.Header().Add("Access-Control-Allow-Origin", "*")
-		w.Header().Add("Access-Control-Allow-Credentials", "true")
-		w.Header().Add("Access-Control-Allow-Methods", "GET")
-		w.Header().Add("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization")
-		w.Header().Add("Access-Control-Max-Age", "1728000")
 
 		SendData(w, http.StatusOK, response)
 	})

@@ -9,6 +9,8 @@ import (
 
 func RelationRemoveHandler(model1, model2 Model, fieldName string, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		AddCORSHeaders(w, "DELETE")
+
 		model1Type := reflect.ValueOf(model1).Type()
 		model2Type := reflect.ValueOf(model2).Type()
 
@@ -47,12 +49,6 @@ func RelationRemoveHandler(model1, model2 Model, fieldName string, DBPoolCallbac
 			SendSingleError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
 			return
 		}
-
-		w.Header().Add("Access-Control-Allow-Origin", "*")
-		w.Header().Add("Access-Control-Allow-Credentials", "true")
-		w.Header().Add("Access-Control-Allow-Methods", "DELETE")
-		w.Header().Add("Access-Control-Allow-Headers", "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization")
-		w.Header().Add("Access-Control-Max-Age", "1728000")
 
 		SendData(w, http.StatusAccepted, MakeSingularDataStruct(model1Type, model1DB))
 	})
