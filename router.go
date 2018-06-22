@@ -188,7 +188,9 @@ func (m *maestro) AddModel(model Model) {
 			Name(model.ModelSingular() + " Model OPTIONS").
 			Handler(OptionsHandler(individualMethods))
 	}
+}
 
+func (m *maestro) AddHealthCheck() {
 	m.router.
 		Methods("GET").
 		Path("/health").
