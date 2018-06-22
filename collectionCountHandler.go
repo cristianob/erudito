@@ -63,6 +63,13 @@ func CollectionCountHandler(model Model, DBPoolCallback func(r *http.Request) *g
 			}
 		}
 
+		softDeleted, ok := r.URL.Query()["del"]
+		if ok {
+			if softDeleted[0] == "true" {
+				db = db.Unscoped()
+			}
+		}
+
 		response := new(collectionCountResponse)
 		if err := db.Model(modelNew).Count(&response.Count).Error; err != nil {
 			SendSingleError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")

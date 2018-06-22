@@ -59,6 +59,13 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 			}
 		}
 
+		softDeleted, ok := r.URL.Query()["del"]
+		if ok {
+			if softDeleted[0] == "true" {
+				db = db.Unscoped()
+			}
+		}
+
 		if notFound := db.First(modelNew, ModelIDField).RecordNotFound(); notFound {
 			SendSingleError(w, http.StatusNotFound, "Entity desn't exists", "ENTITY_DONT_EXISTS")
 			return

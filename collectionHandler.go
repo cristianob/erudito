@@ -59,6 +59,13 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 			}
 		}
 
+		softDeleted, ok := r.URL.Query()["del"]
+		if ok {
+			if softDeleted[0] == "true" {
+				db = db.Unscoped()
+			}
+		}
+
 		modelSlice := reflect.New(reflect.SliceOf(modelType))
 		if err := db.Find(modelSlice.Interface()).Error; err != nil {
 			SendSingleError(w, http.StatusForbidden, "There is an error in your query: "+err.Error(), "QUERY_ERROR")
@@ -69,9 +76,9 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 		 * Removal of the ExcludeGET fields
 		 */
 		modelSliceRemoved := reflect.New(reflect.SliceOf(modelType)).Elem()
-		for el := 0; el < modelSlice.Elem().Len(); el++ {
-			_, ok = reflect.TypeOf(model).MethodByName("BeforeCollectionResponse")
-			if ok {
+		_, ok = reflect.TypeOf(model).MethodByName("BeforeCollectionResponse")
+		if ok {
+			for el := 0; el < modelSlice.Elem().Len(); el++ {
 				beforeCollectionResponse := modelSlice.Elem().Index(el).MethodByName("BeforeCollectionResponse").Call([]reflect.Value{
 					reflect.ValueOf(DBPoolCallback(r)),
 					reflect.ValueOf(r),
@@ -82,6 +89,8 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 					modelSliceRemoved.Set(reflect.Append(modelSliceRemoved, modelSlice.Elem().Index(el)))
 				}
 			}
+		} else {
+			modelSliceRemoved.Set(modelSlice.Elem())
 		}
 
 		for el := 0; el < modelSliceRemoved.Len(); el++ {
