@@ -48,6 +48,14 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 					db = db.Where(fieldJSON+" = ?", getField)
 				}
 			}
+
+			if getField, ok := r.URL.Query()[fieldJSON+"_egt"]; ok {
+				db = db.Where(fieldJSON+" >= ?", getField)
+			}
+
+			if getField, ok := r.URL.Query()[fieldJSON+"_elt"]; ok {
+				db = db.Where(fieldJSON+" <= ?", getField)
+			}
 		}
 
 		relString, ok := r.URL.Query()["rel"]
