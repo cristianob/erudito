@@ -12,10 +12,12 @@ func PostHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "POST")
 
-		beforeErrors := maestro.beforeRequestCallback(r)
-		if beforeErrors != nil {
-			SendError(w, 403, beforeErrors)
-			return
+		if maestro.beforeRequestCallback != nil {
+			beforeErrors := maestro.beforeRequestCallback(r)
+			if beforeErrors != nil {
+				SendError(w, 403, beforeErrors)
+				return
+			}
 		}
 
 		modelType := reflect.ValueOf(model).Type()

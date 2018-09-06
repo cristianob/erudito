@@ -9,10 +9,12 @@ func RelationRemoveHandler(model1, model2 Model, fieldName string, maestro *maes
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "DELETE")
 
-		beforeErrors := maestro.beforeRequestCallback(r)
-		if beforeErrors != nil {
-			SendError(w, 403, beforeErrors)
-			return
+		if maestro.beforeRequestCallback != nil {
+			beforeErrors := maestro.beforeRequestCallback(r)
+			if beforeErrors != nil {
+				SendError(w, 403, beforeErrors)
+				return
+			}
 		}
 
 		model1Type := reflect.ValueOf(model1).Type()
