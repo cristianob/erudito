@@ -4,18 +4,21 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-
-	"github.com/jinzhu/gorm"
 )
 
-func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
+func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "GET")
+
+		beforeErrors := maestro.beforeRequestCallback(r)
+		if beforeErrors != nil {
+			SendError(w, 403, beforeErrors)
+		}
 
 		modelType := reflect.ValueOf(model).Type()
 		modelNew := reflect.New(modelType).Interface()
 
-		db := DBPoolCallback(r)
+		db := maestro.dBPoolCallback(r)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
@@ -88,7 +91,7 @@ func CollectionHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.D
 		if ok {
 			for el := 0; el < modelSlice.Elem().Len(); el++ {
 				beforeCollectionResponse := modelSlice.Elem().Index(el).MethodByName("BeforeCollectionResponse").Call([]reflect.Value{
-					reflect.ValueOf(DBPoolCallback(r)),
+					reflect.ValueOf(maestro.dBPoolCallback(r)),
 					reflect.ValueOf(r),
 					modelSlice.Elem().Index(el).Addr(),
 				})

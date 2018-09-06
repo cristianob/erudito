@@ -3,13 +3,16 @@ package erudito
 import (
 	"net/http"
 	"reflect"
-
-	"github.com/jinzhu/gorm"
 )
 
-func RelationAddHandler(model1, model2 Model, fieldName string, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
+func RelationAddHandler(model1, model2 Model, fieldName string, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "PUT")
+
+		beforeErrors := maestro.beforeRequestCallback(r)
+		if beforeErrors != nil {
+			SendError(w, 404, beforeErrors)
+		}
 
 		model1Type := reflect.ValueOf(model1).Type()
 		model2Type := reflect.ValueOf(model2).Type()
@@ -17,7 +20,7 @@ func RelationAddHandler(model1, model2 Model, fieldName string, DBPoolCallback f
 		model1DB := reflect.New(model1Type).Interface()
 		model2DB := reflect.New(model2Type).Interface()
 
-		db := DBPoolCallback(r)
+		db := maestro.dBPoolCallback(r)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return

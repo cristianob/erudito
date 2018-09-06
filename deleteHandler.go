@@ -3,18 +3,21 @@ package erudito
 import (
 	"net/http"
 	"reflect"
-
-	"github.com/jinzhu/gorm"
 )
 
-func DeleteHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
+func DeleteHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "DELETE")
+
+		beforeErrors := maestro.beforeRequestCallback(r)
+		if beforeErrors != nil {
+			SendError(w, 403, beforeErrors)
+		}
 
 		modelType := reflect.ValueOf(model).Type()
 		modelNew := reflect.New(modelType).Interface()
 
-		db := DBPoolCallback(r)
+		db := maestro.dBPoolCallback(r)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
@@ -43,7 +46,7 @@ func DeleteHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) h
 		_, ok := reflect.TypeOf(model).MethodByName("BeforeDELETE")
 		if ok {
 			beforeDELETE := reflect.ValueOf(model).MethodByName("BeforeDELETE").Call([]reflect.Value{
-				reflect.ValueOf(DBPoolCallback(r)),
+				reflect.ValueOf(maestro.dBPoolCallback(r)),
 				reflect.ValueOf(r),
 				reflect.ValueOf(modelNew),
 			})
@@ -68,7 +71,7 @@ func DeleteHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) h
 					}
 
 					for _, modelRemove := range setDelete {
-						db2 := DBPoolCallback(r)
+						db2 := maestro.dBPoolCallback(r)
 						db2.Delete(modelRemove.Interface())
 					}
 				}

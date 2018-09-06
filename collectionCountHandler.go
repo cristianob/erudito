@@ -4,22 +4,25 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-
-	"github.com/jinzhu/gorm"
 )
 
 type collectionCountResponse struct {
 	Count uint `json:"count"`
 }
 
-func CollectionCountHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
+func CollectionCountHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "GET")
+
+		beforeErrors := maestro.beforeRequestCallback(r)
+		if beforeErrors != nil {
+			SendError(w, 403, beforeErrors)
+		}
 
 		modelType := reflect.ValueOf(model).Type()
 		modelNew := reflect.New(modelType).Interface()
 
-		db := DBPoolCallback(r)
+		db := maestro.dBPoolCallback(r)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return

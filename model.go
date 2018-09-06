@@ -25,10 +25,14 @@ type FullModel struct {
 	DeletedAt *time.Time `json:"deleted_at" sql:"index" erudito:"excludePOST;excludePUT"`
 }
 
-type NoDeleteModel struct {
+type HardDeleteModel struct {
 	ID        uint      `json:"id" gorm:"primary_key" erudito:"excludePOST;excludePUT"`
 	CreatedAt time.Time `json:"created_at" erudito:"excludePOST;excludePUT"`
 	UpdatedAt time.Time `json:"updated_at" erudito:"excludePOST;excludePUT"`
+}
+
+type SimpleModel struct {
+	ID uint `json:"id" gorm:"primary_key" erudito:"excludePOST;excludePUT"`
 }
 
 /*

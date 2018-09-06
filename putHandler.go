@@ -4,19 +4,22 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
-
-	"github.com/jinzhu/gorm"
 )
 
-func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
+func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "PUT")
+
+		beforeErrors := maestro.beforeRequestCallback(r)
+		if beforeErrors != nil {
+			SendError(w, 403, beforeErrors)
+		}
 
 		modelType := reflect.ValueOf(model).Type()
 		modelNew := reflect.New(modelType).Interface()
 		modelDB := reflect.New(modelType).Interface()
 
-		db := DBPoolCallback(r)
+		db := maestro.dBPoolCallback(r)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
@@ -96,7 +99,7 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 					}
 
 					for _, modelRemove := range setDiference {
-						db2 := DBPoolCallback(r)
+						db2 := maestro.dBPoolCallback(r)
 						db2.Delete(modelRemove.Interface())
 					}
 				}
@@ -108,7 +111,7 @@ func PutHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		_, ok := reflect.TypeOf(model).MethodByName("BeforePUT")
 		if ok {
 			beforePUT := reflect.ValueOf(model).MethodByName("BeforePUT").Call([]reflect.Value{
-				reflect.ValueOf(DBPoolCallback(r)),
+				reflect.ValueOf(maestro.dBPoolCallback(r)),
 				reflect.ValueOf(r),
 				modelDBValue,
 			})

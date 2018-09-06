@@ -4,23 +4,26 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
-
-	"github.com/jinzhu/gorm"
 )
 
 type microUpdateBody struct {
 	Value interface{} `json:"value"`
 }
 
-func MicroUpdateHandler(model Model, field string, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
+func MicroUpdateHandler(model Model, field string, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "PUT")
+
+		beforeErrors := maestro.beforeRequestCallback(r)
+		if beforeErrors != nil {
+			SendError(w, 403, beforeErrors)
+		}
 
 		modelType := reflect.ValueOf(model).Type()
 		var modelNew microUpdateBody
 		modelDB := reflect.New(modelType).Interface()
 
-		db := DBPoolCallback(r)
+		db := maestro.dBPoolCallback(r)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return

@@ -4,19 +4,22 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-
-	"github.com/jinzhu/gorm"
 )
 
-func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
+func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "GET")
+
+		beforeErrors := maestro.beforeRequestCallback(r)
+		if beforeErrors != nil {
+			SendError(w, 403, beforeErrors)
+		}
 
 		modelType := reflect.ValueOf(model).Type()
 		modelNew := reflect.New(modelType).Interface()
 
 		// Database connection
-		db := DBPoolCallback(r)
+		db := maestro.dBPoolCallback(r)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
@@ -28,7 +31,7 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		_, ok := reflect.TypeOf(model).MethodByName("BeforeGET")
 		if ok {
 			beforeGETr := reflect.ValueOf(model).MethodByName("BeforeGET").Call([]reflect.Value{
-				reflect.ValueOf(DBPoolCallback(r)),
+				reflect.ValueOf(maestro.dBPoolCallback(r)),
 				reflect.ValueOf(r),
 			})
 
@@ -77,7 +80,7 @@ func GetHandler(model Model, DBPoolCallback func(r *http.Request) *gorm.DB) http
 		_, ok = reflect.TypeOf(model).MethodByName("BeforeGETResponse")
 		if ok {
 			beforeGETResponseR := reflect.ValueOf(model).MethodByName("BeforeGETResponse").Call([]reflect.Value{
-				reflect.ValueOf(DBPoolCallback(r)),
+				reflect.ValueOf(maestro.dBPoolCallback(r)),
 				reflect.ValueOf(r),
 				reflect.ValueOf(modelNew),
 			})

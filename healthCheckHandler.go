@@ -2,15 +2,13 @@ package erudito
 
 import (
 	"net/http"
-
-	"github.com/jinzhu/gorm"
 )
 
-func HealthCheckHandler(DBPoolCallback func(r *http.Request) *gorm.DB) http.HandlerFunc {
+func HealthCheckHandler(maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "GET")
 
-		db := DBPoolCallback(r)
+		db := maestro.dBPoolCallback(r)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
