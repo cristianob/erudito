@@ -17,6 +17,7 @@ func MicroUpdateHandler(model Model, field string, maestro *maestro) http.Handle
 		beforeErrors := maestro.beforeRequestCallback(r)
 		if beforeErrors != nil {
 			SendError(w, 403, beforeErrors)
+			return
 		}
 
 		modelType := reflect.ValueOf(model).Type()

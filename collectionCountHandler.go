@@ -17,6 +17,7 @@ func CollectionCountHandler(model Model, maestro *maestro) http.HandlerFunc {
 		beforeErrors := maestro.beforeRequestCallback(r)
 		if beforeErrors != nil {
 			SendError(w, 403, beforeErrors)
+			return
 		}
 
 		modelType := reflect.ValueOf(model).Type()

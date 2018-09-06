@@ -11,7 +11,8 @@ func RelationAddHandler(model1, model2 Model, fieldName string, maestro *maestro
 
 		beforeErrors := maestro.beforeRequestCallback(r)
 		if beforeErrors != nil {
-			SendError(w, 404, beforeErrors)
+			SendError(w, 403, beforeErrors)
+			return
 		}
 
 		model1Type := reflect.ValueOf(model1).Type()
