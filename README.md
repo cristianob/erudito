@@ -1,6 +1,7 @@
 Erudito
 =======
-CRUD server like a symphony.
+CRUD servers made like a symphony.
+
 **This software is under development and may be unstable or have significant changes before the final first release.**
 
 ## Trello TO DO Board
