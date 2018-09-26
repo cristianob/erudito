@@ -33,11 +33,8 @@ func DeleteHandler(model Model, maestro *maestro) http.HandlerFunc {
 		}
 
 		for i := 0; i < modelType.NumField(); i++ {
-			for _, prop := range getTagValues("DELETE", modelType.Field(i).Tag.Get("erudito")) {
-				switch prop {
-				case "auto_remove":
-					db = db.Preload(modelType.Field(i).Name)
-				}
+			if checkIfTagExists("DELETEautoremove", modelType.Field(i).Tag.Get("erudito")) {
+				db = db.Preload(modelType.Field(i).Name)
 			}
 		}
 
@@ -63,20 +60,17 @@ func DeleteHandler(model Model, maestro *maestro) http.HandlerFunc {
 		modelNewValue := reflect.ValueOf(modelNew)
 
 		for i := 0; i < modelType.NumField(); i++ {
-			for _, prop := range getTagValues("DELETE", modelType.Field(i).Tag.Get("erudito")) {
-				switch prop {
-				case "auto_remove":
-					setNew := modelNewValue.Elem().FieldByName(modelType.Field(i).Name)
-					setDelete := []reflect.Value{}
+			if checkIfTagExists("DELETEautoremove", modelType.Field(i).Tag.Get("erudito")) {
+				setNew := modelNewValue.Elem().FieldByName(modelType.Field(i).Name)
+				setDelete := []reflect.Value{}
 
-					for j := 0; j < setNew.Len(); j++ {
-						setDelete = append(setDelete, setNew.Index(j))
-					}
+				for j := 0; j < setNew.Len(); j++ {
+					setDelete = append(setDelete, setNew.Index(j))
+				}
 
-					for _, modelRemove := range setDelete {
-						db2 := maestro.dBPoolCallback(r)
-						db2.Delete(modelRemove.Interface())
-					}
+				for _, modelRemove := range setDelete {
+					db2 := maestro.dBPoolCallback(r)
+					db2.Delete(modelRemove.Interface())
 				}
 			}
 		}

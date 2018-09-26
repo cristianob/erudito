@@ -64,11 +64,8 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 		}
 
 		for i := 0; i < modelType.NumField(); i++ {
-			for _, prop := range getTagValues("PUT", modelType.Field(i).Tag.Get("erudito")) {
-				switch prop {
-				case "auto_remove":
-					db = db.Preload(modelType.Field(i).Name)
-				}
+			if checkIfTagExists("PUTautoremove", modelType.Field(i).Tag.Get("erudito")) {
+				db = db.Preload(modelType.Field(i).Name)
 			}
 		}
 
@@ -81,30 +78,27 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 		modelNewValue := reflect.ValueOf(modelNew)
 
 		for i := 0; i < modelType.NumField(); i++ {
-			for _, prop := range getTagValues("PUT", modelType.Field(i).Tag.Get("erudito")) {
-				switch prop {
-				case "auto_remove":
-					setDB := modelDBValue.Elem().FieldByName(modelType.Field(i).Name)
-					setNew := modelNewValue.Elem().FieldByName(modelType.Field(i).Name)
-					setDiference := []reflect.Value{}
+			if checkIfTagExists("PUTautoremove", modelType.Field(i).Tag.Get("erudito")) {
+				setDB := modelDBValue.Elem().FieldByName(modelType.Field(i).Name)
+				setNew := modelNewValue.Elem().FieldByName(modelType.Field(i).Name)
+				setDiference := []reflect.Value{}
 
-					for j := 0; j < setDB.Len(); j++ {
-						exists := false
-						for k := 0; k < setNew.Len(); k++ {
-							if setDB.Index(j).FieldByName("ID").Interface().(uint) == setNew.Index(k).FieldByName("ID").Interface().(uint) {
-								exists = true
-							}
-						}
-
-						if !exists {
-							setDiference = append(setDiference, setDB.Index(j))
+				for j := 0; j < setDB.Len(); j++ {
+					exists := false
+					for k := 0; k < setNew.Len(); k++ {
+						if setDB.Index(j).FieldByName("ID").Interface().(uint) == setNew.Index(k).FieldByName("ID").Interface().(uint) {
+							exists = true
 						}
 					}
 
-					for _, modelRemove := range setDiference {
-						db2 := maestro.dBPoolCallback(r)
-						db2.Delete(modelRemove.Interface())
+					if !exists {
+						setDiference = append(setDiference, setDB.Index(j))
 					}
+				}
+
+				for _, modelRemove := range setDiference {
+					db2 := maestro.dBPoolCallback(r)
+					db2.Delete(modelRemove.Interface())
 				}
 			}
 		}
