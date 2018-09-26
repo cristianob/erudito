@@ -8,14 +8,7 @@ import (
 )
 
 type Model interface {
-	ModelSingular() string
-	ModelPlural() string
-
-	AcceptCollection() bool
-	AcceptGET() bool
-	AcceptPOST() bool
-	AcceptPUT() bool
-	AcceptDELETE() bool
+	CRUDOptions() CRUDOptions
 }
 
 type FullModel struct {
@@ -33,6 +26,20 @@ type HardDeleteModel struct {
 
 type SimpleModel struct {
 	ID uint `json:"id" gorm:"primary_key" erudito:"excludePOST;excludePUT"`
+}
+
+/*
+ *
+ */
+type CRUDOptions struct {
+	ModelSingular    string
+	ModelPlural      string
+	AcceptCollection bool
+	AcceptGET        bool
+	AcceptPOST       bool
+	AcceptPUT        bool
+	AcceptPATCH      bool
+	AcceptDELETE     bool
 }
 
 /*
