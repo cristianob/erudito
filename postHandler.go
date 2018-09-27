@@ -160,13 +160,13 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, db *gorm.DB,
 }
 
 func validateField(modelField reflect.StructField, sourceField reflect.Value, source reflect.Value, stack []string, slicePos *uint) []JSendErrorDescription {
-	beforePOSTr := source.MethodByName("ValidateField").Call([]reflect.Value{
-		reflect.ValueOf(modelField.Tag.Get("json")),
+	validateFieldr := source.MethodByName("ValidateField").Call([]reflect.Value{
+		reflect.ValueOf(getJSONFieldNameByTag(modelField.Tag.Get("json"))),
 		sourceField,
 		source,
 	})
 
-	if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+	if errs := validateFieldr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
 		for j := 0; j < len(errs); j++ {
 			if len(stack) > 0 {
 				refer := strings.Join(stack, ".")

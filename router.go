@@ -96,6 +96,11 @@ func (m *maestro) AddModel(model Model) {
 		individualMethods = append(individualMethods, "PUT")
 	}
 
+	if crudOptions.AcceptPATCH {
+		m.addPATCH("/"+crudOptions.ModelSingular+"/{id}", crudOptions.ModelSingular+" PATCH", model)
+		individualMethods = append(individualMethods, "PATCH")
+	}
+
 	if crudOptions.AcceptDELETE {
 		m.addDelete("/"+crudOptions.ModelSingular+"/{id}", crudOptions.ModelSingular+" DELETE", model)
 		individualMethods = append(individualMethods, "DELETE")
@@ -166,6 +171,11 @@ func (m *maestro) removeRelation(path, name, fieldName string, model1, model2 Mo
 func (m *maestro) addPUT(path, name string, model Model) {
 	m.addRoute("PUT", path, name, PutHandler(model, m))
 	log.Println("[ERUDITO] Added route PUT " + path)
+}
+
+func (m *maestro) addPATCH(path, name string, model Model) {
+	m.addRoute("PATCH", path, name, PatchHandler(model, m))
+	log.Println("[ERUDITO] Added route PATCH " + path)
 }
 
 func (m *maestro) addDelete(path, name string, model Model) {

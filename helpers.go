@@ -1,6 +1,7 @@
 package erudito
 
 import (
+	"reflect"
 	"strings"
 )
 
@@ -13,6 +14,28 @@ func checkIfTagExists(check string, tags string) bool {
 	}
 
 	return false
+}
+
+func getJSONFieldNameByTag(tag string) string {
+	stringSplit := strings.Split(tag, ",")
+	return stringSplit[0]
+}
+
+func fieldIsAEruditoModel(field reflect.StructField) bool {
+	switch field.Type.Kind() {
+	case reflect.Slice:
+		return field.Type.Elem().Implements(reflect.TypeOf((*Model)(nil)).Elem()) ||
+			field.Type.Elem() == reflect.TypeOf(FullModel{}) ||
+			field.Type.Elem() == reflect.TypeOf(HardDeleteModel{}) ||
+			field.Type.Elem() == reflect.TypeOf(SimpleModel{})
+	case reflect.Struct:
+		return field.Type.Implements(reflect.TypeOf((*Model)(nil)).Elem()) ||
+			field.Type == reflect.TypeOf(FullModel{}) ||
+			field.Type == reflect.TypeOf(HardDeleteModel{}) ||
+			field.Type == reflect.TypeOf(SimpleModel{})
+	default:
+		return false
+	}
 }
 
 func upperCamelCase(s string) string {
