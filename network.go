@@ -22,8 +22,10 @@ type JSendError struct {
 }
 
 type JSendErrorDescription struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string  `json:"code"`
+	Message string  `json:"message"`
+	Refer   *string `json:"refer,omitempty"`
+	Pos     *uint   `json:"pos,omitempty"`
 }
 
 type JSendFail struct {

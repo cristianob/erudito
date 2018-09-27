@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
+
+	"github.com/jinzhu/gorm"
 )
 
 func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
@@ -19,64 +21,57 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 		}
 
 		modelType := reflect.ValueOf(model).Type()
-		modelNew := reflect.New(modelType).Interface()
-		modelDB := reflect.New(modelType).Interface()
 
+		modelNewValue := reflect.New(modelType)
+		modelNew := modelNewValue.Interface()
+
+		modelDBValue := reflect.New(modelType)
+		modelDB := modelDBValue.Interface()
+
+		/*
+		 * DB Connection
+		 */
 		db := maestro.dBPoolCallback(r)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
 
+		/*
+		 * Getting ID field
+		 */
 		ModelIDField, err := GetNumericRouteField(r, "id")
 		if err != nil {
 			SendSingleError(w, http.StatusUnprocessableEntity, "Entity ID is invalid", "ENTITY_ID_INVALID")
 			return
 		}
 
+		/*
+		 * JSON Unmarshal
+		 */
 		if err := json.NewDecoder(r.Body).Decode(modelNew); err != nil {
 			SendSingleError(w, http.StatusUnprocessableEntity, "Given request body was invalid, or some field is in wrong type.", "")
 			return
 		}
 
-		validationErrors := []JSendErrorDescription{}
-		for i := 0; i < modelType.NumField(); i++ {
-			if len(modelType.Field(i).PkgPath) != 0 {
-				continue
-			}
+		/*
+		 * Treating autoRemove fields
+		 */
 
-			if !checkIfTagExists("excludePUT", modelType.Field(i).Tag.Get("erudito")) {
-				beforePOSTr := reflect.ValueOf(model).MethodByName("ValidateField").Call([]reflect.Value{
-					reflect.ValueOf(modelType.Field(i).Tag.Get("json")),
-					reflect.ValueOf(modelNew).Elem().Field(i),
-					reflect.ValueOf(modelNew),
-				})
-
-				if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
-					validationErrors = append(validationErrors, errs...)
-				}
-			}
-		}
-
-		if len(validationErrors) > 0 {
-			SendError(w, http.StatusForbidden, validationErrors)
-			return
-		}
-
+		// Preloading fields
 		for i := 0; i < modelType.NumField(); i++ {
 			if checkIfTagExists("PUTautoremove", modelType.Field(i).Tag.Get("erudito")) {
 				db = db.Preload(modelType.Field(i).Name)
 			}
 		}
 
+		// Getting DB model
 		if notFound := db.First(modelDB, ModelIDField).RecordNotFound(); notFound {
 			SendSingleError(w, http.StatusForbidden, "Entity desn't exists", "ENTITY_DONT_EXISTS")
 			return
 		}
 
-		modelDBValue := reflect.ValueOf(modelDB)
-		modelNewValue := reflect.ValueOf(modelNew)
-
+		// Getting diff and removing
 		for i := 0; i < modelType.NumField(); i++ {
 			if checkIfTagExists("PUTautoremove", modelType.Field(i).Tag.Get("erudito")) {
 				setDB := modelDBValue.Elem().FieldByName(modelType.Field(i).Name)
@@ -103,23 +98,25 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 			}
 		}
 
-		deepCopy(modelType, modelNewValue.Elem(), modelDBValue.Elem(), "excludePUT")
+		/*
+		 * Recursive Validation and Cleaning
+		 */
+		validationErrors := validateAndClearPUT(modelType, modelNewValue, db, r, []string{}, nil)
 
-		_, ok := reflect.TypeOf(model).MethodByName("BeforePUT")
-		if ok {
-			beforePUT := reflect.ValueOf(model).MethodByName("BeforePUT").Call([]reflect.Value{
-				reflect.ValueOf(maestro.dBPoolCallback(r)),
-				reflect.ValueOf(r),
-				modelDBValue,
-			})
-
-			if errs := beforePUT[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
-				SendError(w, http.StatusForbidden, errs)
-				return
-			}
+		if len(validationErrors) > 0 {
+			SendError(w, http.StatusForbidden, validationErrors)
+			return
 		}
 
-		if err := db.Save(modelDB).Error; err != nil {
+		/*
+		 * Get the ID
+		 */
+		modelNewValue.Elem().FieldByName("ID").Set(modelDBValue.Elem().FieldByName("ID"))
+
+		/*
+		 * Saving the new model
+		 */
+		if err := db.Save(modelNew).Error; err != nil {
 			SendSingleError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
 			return
 		}
@@ -129,11 +126,97 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 		 */
 		for i := 0; i < modelType.NumField(); i++ {
 			if checkIfTagExists("excludeGET", modelType.Field(i).Tag.Get("erudito")) {
-				reflect.ValueOf(modelDB).Elem().Field(i).Set(reflect.Zero(modelType.Field(i).Type))
+				reflect.ValueOf(modelNew).Elem().Field(i).Set(reflect.Zero(modelType.Field(i).Type))
 			}
 		}
 
-		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelDB))
+		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelNew))
 	})
 
+}
+
+func validateAndClearPUT(model reflect.Type, source reflect.Value, db *gorm.DB, r *http.Request, stack []string, slicePos *uint) []JSendErrorDescription {
+	// Final array of errors
+	validationErrors := []JSendErrorDescription{}
+
+	// Iterate through Model Fields
+	for i := 0; i < model.NumField(); i++ {
+		// If have a Package Path, go to next
+		if len(model.Field(i).PkgPath) != 0 {
+			continue
+		}
+
+		// If is a pointer, we do the dereference
+		if source.Type().Kind() == reflect.Ptr {
+			source = source.Elem()
+		}
+
+		// We store a boolean to see if this model has a Validate method
+		_, hasValidateField := model.MethodByName("ValidateField")
+
+		// Switching through the field's Kind
+		switch model.Field(i).Type.Kind() {
+
+		// If is a struct
+		case reflect.Struct:
+			// We verify if is a Erudito model or is other field like time.Time
+			if model.Field(i).Type.Implements(reflect.TypeOf((*Model)(nil)).Elem()) ||
+				model.Field(i).Type == reflect.TypeOf(FullModel{}) ||
+				model.Field(i).Type == reflect.TypeOf(HardDeleteModel{}) ||
+				model.Field(i).Type == reflect.TypeOf(SimpleModel{}) {
+				// If is a Erudito model, whe do recursion
+				validationErrors = append(validationErrors, validateAndClearPUT(model.Field(i).Type, source.Field(i), db, r, append(stack, model.Field(i).Tag.Get("json")), nil)...)
+			} else {
+				// If not, whe validate the field (if the model has the function)
+				if hasValidateField {
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+				}
+			}
+
+		// If is a slice
+		case reflect.Slice:
+			// We iterate throught the slice doing recursion
+			for j := 0; j < source.Field(i).Len(); j++ {
+				pos := uint(j)
+
+				if source.Field(i).Index(j).Kind() == reflect.Struct {
+					// If is a slice, we do recursion
+					validationErrors = append(validationErrors, validateAndClearPUT(source.Field(i).Index(j).Type(), source.Field(i).Index(j), db, r, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
+				} else {
+					// If not, whe validate the field (if the model has the function)
+					if hasValidateField {
+						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+					}
+				}
+			}
+
+		// If is any other type
+		default:
+			// We remove excludePOST fields
+			if checkIfTagExists("excludePUT", model.Field(i).Tag.Get("erudito")) {
+				source.Field(i).Set(reflect.Zero(model.Field(i).Type))
+			} else {
+				// If not, whe validate the field (if the model has the function)
+				if hasValidateField {
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+				}
+			}
+		}
+	}
+
+	// Call BeforePOST in recursion
+	_, hasBeforePUT := model.MethodByName("BeforePUT")
+	if hasBeforePUT {
+		beforePUTr := source.MethodByName("BeforePUT").Call([]reflect.Value{
+			reflect.ValueOf(db),
+			reflect.ValueOf(r),
+			source.Addr(),
+		})
+
+		if errs := beforePUTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+			validationErrors = append(validationErrors, errs...)
+		}
+	}
+
+	return validationErrors
 }

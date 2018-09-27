@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/jinzhu/gorm"
 )
@@ -44,7 +45,7 @@ func PostHandler(model Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * Recursive Validation and Cleaning
 		 */
-		validationErrors := validateAndClear(modelType, modelPostValue, db, r)
+		validationErrors := validateAndClearPOST(modelType, modelPostValue, db, r, []string{}, nil)
 
 		if len(validationErrors) > 0 {
 			SendError(w, http.StatusForbidden, validationErrors)
@@ -72,62 +73,76 @@ func PostHandler(model Model, maestro *maestro) http.HandlerFunc {
 	})
 }
 
-func validateAndClear(model reflect.Type, source reflect.Value, db *gorm.DB, r *http.Request) []JSendErrorDescription {
+func validateAndClearPOST(model reflect.Type, source reflect.Value, db *gorm.DB, r *http.Request, stack []string, slicePos *uint) []JSendErrorDescription {
+	// Final array of errors
 	validationErrors := []JSendErrorDescription{}
 
+	// Iterate through Model Fields
 	for i := 0; i < model.NumField(); i++ {
+		// If have a Package Path, go to next
 		if len(model.Field(i).PkgPath) != 0 {
 			continue
 		}
 
+		// If is a pointer, we do the dereference
 		if source.Type().Kind() == reflect.Ptr {
 			source = source.Elem()
 		}
 
+		// We store a boolean to see if this model has a Validate method
 		_, hasValidateField := model.MethodByName("ValidateField")
 
+		// Switching through the field's Kind
 		switch model.Field(i).Type.Kind() {
-		case reflect.Struct:
-			if model.Field(i).Type.Implements(reflect.TypeOf((*Model)(nil)).Elem()) {
-				validationErrors = append(validationErrors, validateAndClear(model.Field(i).Type, source.Field(i), db, r)...)
-			} else {
-				if hasValidateField {
-					beforePOSTr := source.MethodByName("ValidateField").Call([]reflect.Value{
-						reflect.ValueOf(model.Field(i).Tag.Get("json")),
-						source.Field(i),
-						source.Addr(),
-					})
 
-					if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
-						validationErrors = append(validationErrors, errs...)
+		// If is a struct
+		case reflect.Struct:
+			// We verify if is a Erudito model or is other field like time.Time
+			if model.Field(i).Type.Implements(reflect.TypeOf((*Model)(nil)).Elem()) ||
+				model.Field(i).Type == reflect.TypeOf(FullModel{}) ||
+				model.Field(i).Type == reflect.TypeOf(HardDeleteModel{}) ||
+				model.Field(i).Type == reflect.TypeOf(SimpleModel{}) {
+				// If is a Erudito model, whe do recursion
+				validationErrors = append(validationErrors, validateAndClearPOST(model.Field(i).Type, source.Field(i), db, r, append(stack, model.Field(i).Tag.Get("json")), nil)...)
+			} else {
+				// If not, whe validate the field (if the model has the function)
+				if hasValidateField {
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+				}
+			}
+
+		// If is a slice
+		case reflect.Slice:
+			// We iterate throught the slice doing recursion
+			for j := 0; j < source.Field(i).Len(); j++ {
+				pos := uint(j)
+
+				if source.Field(i).Index(j).Kind() == reflect.Struct {
+					// If is a slice, we do recursion
+					validationErrors = append(validationErrors, validateAndClearPOST(source.Field(i).Index(j).Type(), source.Field(i).Index(j), db, r, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
+				} else {
+					// If not, whe validate the field (if the model has the function)
+					if hasValidateField {
+						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
 					}
 				}
 			}
 
-		case reflect.Slice:
-			for j := 0; j < source.Field(i).Len(); j++ {
-				validationErrors = append(validationErrors, validateAndClear(reflect.TypeOf(source.Field(i).Index(j)), source.Field(i).Index(j), db, r)...)
-			}
-
+		// If is any other type
 		default:
+			// We remove excludePOST fields
 			if checkIfTagExists("excludePOST", model.Field(i).Tag.Get("erudito")) {
 				source.Field(i).Set(reflect.Zero(model.Field(i).Type))
 			} else {
+				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
-					beforePOSTr := source.MethodByName("ValidateField").Call([]reflect.Value{
-						reflect.ValueOf(model.Field(i).Tag.Get("json")),
-						source.Field(i),
-						source.Addr(),
-					})
-
-					if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
-						validationErrors = append(validationErrors, errs...)
-					}
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
 				}
 			}
 		}
 	}
 
+	// Call BeforePOST in recursion
 	_, hasBeforePOST := model.MethodByName("BeforePOST")
 	if hasBeforePOST {
 		beforePOSTr := source.MethodByName("BeforePOST").Call([]reflect.Value{
@@ -142,4 +157,27 @@ func validateAndClear(model reflect.Type, source reflect.Value, db *gorm.DB, r *
 	}
 
 	return validationErrors
+}
+
+func validateField(modelField reflect.StructField, sourceField reflect.Value, source reflect.Value, stack []string, slicePos *uint) []JSendErrorDescription {
+	beforePOSTr := source.MethodByName("ValidateField").Call([]reflect.Value{
+		reflect.ValueOf(modelField.Tag.Get("json")),
+		sourceField,
+		source,
+	})
+
+	if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+		for j := 0; j < len(errs); j++ {
+			if len(stack) > 0 {
+				refer := strings.Join(stack, ".")
+				errs[j].Refer = &refer
+			}
+
+			errs[j].Pos = slicePos
+		}
+
+		return errs
+	}
+
+	return []JSendErrorDescription{}
 }
