@@ -118,7 +118,7 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, db *gorm.DB,
 				pos := uint(j)
 
 				if source.Field(i).Index(j).Kind() == reflect.Struct {
-					// If is a slice, we do recursion
+					// If is a struct, we do recursion
 					validationErrors = append(validationErrors, validateAndClearPOST(source.Field(i).Index(j).Type(), source.Field(i).Index(j), db, r, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
 				} else {
 					// If not, whe validate the field (if the model has the function)
