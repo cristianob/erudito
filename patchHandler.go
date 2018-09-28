@@ -93,15 +93,15 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 			}
 
 			// Verify if is the same type or a pointer of the type
-			sameType := modelType.Field(i).Type.AssignableTo(reflect.TypeOf(modelSent[jsonFieldName]))
-			if !sameType {
-				allErrs = append(allErrs, JSendErrorDescription{
-					Code:    "INVALID_TYPE",
-					Message: "Field '" + jsonFieldName + "' needs to be a " + modelType.Field(i).Type.String(),
-				})
+			// sameType := reflect.TypeOf(modelSent[jsonFieldName]).AssignableTo(modelType.Field(i).Type)
+			// if !sameType {
+			// 	allErrs = append(allErrs, JSendErrorDescription{
+			// 		Code:    "INVALID_TYPE",
+			// 		Message: "Field '" + jsonFieldName + "' needs to be a " + modelType.Field(i).Type.String(),
+			// 	})
 
-				continue
-			}
+			// 	continue
+			// }
 
 			// Validating fields
 			_, hasValidateField := modelType.MethodByName("ValidateField")
