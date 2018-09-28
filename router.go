@@ -51,7 +51,7 @@ func (m *maestro) AddModel(model Model) {
 		m.addPOST("/"+crudOptions.ModelSingular, crudOptions.ModelSingular+" POST", model)
 		m.addOPTION("/"+crudOptions.ModelSingular, crudOptions.ModelSingular+" OPTION", []string{"POST"})
 
-		modelType := reflect.TypeOf(crudOptions)
+		modelType := reflect.TypeOf(model)
 		for i := 0; i < modelType.NumField(); i++ {
 			if modelType.Field(i).Type.Kind() == reflect.Slice {
 				gormTagset := modelType.Field(i).Tag.Get("gorm")
