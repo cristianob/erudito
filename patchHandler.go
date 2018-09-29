@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
+	"time"
 )
 
 func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
@@ -117,6 +118,32 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 				}
 			}
 
+			// If is a time field, we convert to SQL format
+			if modelType.Field(i).Type.AssignableTo(reflect.TypeOf(NullTime{})) ||
+				modelType.Field(i).Type.AssignableTo(reflect.TypeOf(time.Time{})) {
+
+				if reflect.TypeOf(modelSent[jsonFieldName]).Kind() != reflect.String {
+					allErrs = append(allErrs, JSendErrorDescription{
+						Code:    "INVALID_TIME",
+						Message: "Field '" + jsonFieldName + "' is not a valid ISO time",
+					})
+
+					continue
+				}
+
+				time, err := time.Parse(time.RFC3339, modelSent[jsonFieldName].(string))
+				if err != nil {
+					allErrs = append(allErrs, JSendErrorDescription{
+						Code:    "INVALID_TIME",
+						Message: "Field '" + jsonFieldName + "' is not a valid ISO time: " + err.Error(),
+					})
+
+					continue
+				}
+
+				modelSent[jsonFieldName] = time.Format("2006-01-02 15:04:05")
+			}
+
 			modelUpdate[jsonFieldName] = modelSent[jsonFieldName]
 		}
 
@@ -128,7 +155,7 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * Saving the new model
 		 */
-		if err := db.Model(modelDB).Set("gorm:save_associations", false).Set("gorm:association_save_reference", false).Updates(modelSent).Error; err != nil {
+		if err := db.Model(modelDB).Set("gorm:save_associations", false).Set("gorm:association_save_reference", false).Updates(modelUpdate).Error; err != nil {
 			SendSingleError(w, http.StatusForbidden, "Cannot update record - "+err.Error(), "ENTITY_UPDATE_ERROR")
 			return
 		}
