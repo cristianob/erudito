@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-
-	"github.com/jinzhu/gorm"
 )
 
 func PostHandler(model Model, maestro *maestro) http.HandlerFunc {
@@ -45,7 +43,7 @@ func PostHandler(model Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * Recursive Validation and Cleaning
 		 */
-		validationErrors := validateAndClearPOST(modelType, modelPostValue, db, r, []string{}, nil)
+		validationErrors := validateAndClearPOST(modelType, modelPostValue, maestro, r, []string{}, nil)
 
 		if len(validationErrors) > 0 {
 			SendError(w, http.StatusForbidden, validationErrors)
@@ -73,7 +71,7 @@ func PostHandler(model Model, maestro *maestro) http.HandlerFunc {
 	})
 }
 
-func validateAndClearPOST(model reflect.Type, source reflect.Value, db *gorm.DB, r *http.Request, stack []string, slicePos *uint) []JSendErrorDescription {
+func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *maestro, r *http.Request, stack []string, slicePos *uint) []JSendErrorDescription {
 	// Final array of errors
 	validationErrors := []JSendErrorDescription{}
 
@@ -103,7 +101,7 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, db *gorm.DB,
 				model.Field(i).Type == reflect.TypeOf(HardDeleteModel{}) ||
 				model.Field(i).Type == reflect.TypeOf(SimpleModel{}) {
 				// If is a Erudito model, whe do recursion
-				validationErrors = append(validationErrors, validateAndClearPOST(model.Field(i).Type, source.Field(i), db, r, append(stack, model.Field(i).Tag.Get("json")), nil)...)
+				validationErrors = append(validationErrors, validateAndClearPOST(model.Field(i).Type, source.Field(i), maestro, r, append(stack, model.Field(i).Tag.Get("json")), nil)...)
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
@@ -119,7 +117,7 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, db *gorm.DB,
 
 				if source.Field(i).Index(j).Kind() == reflect.Struct {
 					// If is a struct, we do recursion
-					validationErrors = append(validationErrors, validateAndClearPOST(source.Field(i).Index(j).Type(), source.Field(i).Index(j), db, r, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
+					validationErrors = append(validationErrors, validateAndClearPOST(source.Field(i).Index(j).Type(), source.Field(i).Index(j), maestro, r, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
 				} else {
 					// If not, whe validate the field (if the model has the function)
 					if hasValidateField {
@@ -146,7 +144,7 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, db *gorm.DB,
 	_, hasBeforePOST := model.MethodByName("BeforePOST")
 	if hasBeforePOST {
 		beforePOSTr := source.MethodByName("BeforePOST").Call([]reflect.Value{
-			reflect.ValueOf(db),
+			reflect.ValueOf(maestro.dBPoolCallback(r)),
 			reflect.ValueOf(r),
 			source.Addr(),
 		})
