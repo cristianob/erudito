@@ -75,6 +75,20 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 	// Final array of errors
 	validationErrors := []JSendErrorDescription{}
 
+	// Call BeforePOST in recursion
+	_, hasBeforePOST := model.MethodByName("BeforePOST")
+	if hasBeforePOST {
+		beforePOSTr := source.MethodByName("BeforePOST").Call([]reflect.Value{
+			reflect.ValueOf(maestro.dBPoolCallback(r)),
+			reflect.ValueOf(r),
+			source.Addr(),
+		})
+
+		if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+			validationErrors = append(validationErrors, errs...)
+		}
+	}
+
 	// Iterate through Model Fields
 	for i := 0; i < model.NumField(); i++ {
 		// If have a Package Path, go to next
@@ -137,20 +151,6 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
 				}
 			}
-		}
-	}
-
-	// Call BeforePOST in recursion
-	_, hasBeforePOST := model.MethodByName("BeforePOST")
-	if hasBeforePOST {
-		beforePOSTr := source.MethodByName("BeforePOST").Call([]reflect.Value{
-			reflect.ValueOf(maestro.dBPoolCallback(r)),
-			reflect.ValueOf(r),
-			source.Addr(),
-		})
-
-		if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
-			validationErrors = append(validationErrors, errs...)
 		}
 	}
 
