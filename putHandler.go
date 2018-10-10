@@ -143,7 +143,7 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 		beforePUTr := source.MethodByName("BeforePUT").Call([]reflect.Value{
 			reflect.ValueOf(maestro.dBPoolCallback(r)),
 			reflect.ValueOf(r),
-			source.Addr(),
+			source,
 		})
 
 		if errs := beforePUTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
@@ -177,7 +177,7 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 				model.Field(i).Type == reflect.TypeOf(HardDeleteModel{}) ||
 				model.Field(i).Type == reflect.TypeOf(SimpleModel{}) {
 				// If is a Erudito model, whe do recursion
-				validationErrors = append(validationErrors, validateAndClearPUT(model.Field(i).Type, source.Field(i), maestro, r, append(stack, model.Field(i).Tag.Get("json")), nil)...)
+				validationErrors = append(validationErrors, validateAndClearPUT(model.Field(i).Type, source.Field(i).Addr(), maestro, r, append(stack, model.Field(i).Tag.Get("json")), nil)...)
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
@@ -193,7 +193,7 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 
 				if source.Field(i).Index(j).Kind() == reflect.Struct {
 					// If is a struct, we do recursion
-					validationErrors = append(validationErrors, validateAndClearPUT(source.Field(i).Index(j).Type(), source.Field(i).Index(j), maestro, r, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
+					validationErrors = append(validationErrors, validateAndClearPUT(source.Field(i).Index(j).Type(), source.Field(i).Index(j).Addr(), maestro, r, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
 				} else {
 					// If not, whe validate the field (if the model has the function)
 					if hasValidateField {
