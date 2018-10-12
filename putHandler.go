@@ -107,9 +107,17 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 		}
 
 		/*
-		 * Get the ID
+		 * Get the ID and Erudito's reserved fields
 		 */
 		modelNewValue.Elem().FieldByName("ID").Set(modelDBValue.Elem().FieldByName("ID"))
+
+		if _, ok := modelType.FieldByName("CreatedAt"); ok {
+			modelNewValue.Elem().FieldByName("CreatedAt").Set(modelDBValue.Elem().FieldByName("CreatedAt"))
+		}
+
+		if _, ok := modelType.FieldByName("DeletedAt"); ok {
+			modelNewValue.Elem().FieldByName("DeletedAt").Set(modelDBValue.Elem().FieldByName("DeletedAt"))
+		}
 
 		/*
 		 * Saving the new model
@@ -155,6 +163,11 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 	for i := 0; i < model.NumField(); i++ {
 		// If have a Package Path, go to next
 		if len(model.Field(i).PkgPath) != 0 {
+			continue
+		}
+
+		// If it's a Erudito's reserved field
+		if model.Field(i).Name == "ID" || model.Field(i).Name == "CreatedAt" || model.Field(i).Name == "UpdatedAt" || model.Field(i).Name == "DeletedAt" {
 			continue
 		}
 
