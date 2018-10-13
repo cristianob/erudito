@@ -50,7 +50,7 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 				case reflect.String:
 					db = db.Where(fieldJSON+" LIKE ?", getField)
 
-				case reflect.Int, reflect.Uint:
+				default:
 					db = db.Where(fieldJSON+" = ?", getField)
 				}
 			}
