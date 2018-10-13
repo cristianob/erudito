@@ -64,6 +64,14 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 			}
 		}
 
+		if getField, ok := r.URL.Query()["created_at_egt"]; ok {
+			db = db.Where("created_at >= ?", getField)
+		}
+
+		if getField, ok := r.URL.Query()["created_at_elt"]; ok {
+			db = db.Where("created_at <= ?", getField)
+		}
+
 		relString, ok := r.URL.Query()["rel"]
 		if ok {
 			rels := strings.Split(relString[0], ",")
