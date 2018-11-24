@@ -79,7 +79,17 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 				for j := 0; j < setDB.Len(); j++ {
 					exists := false
 					for k := 0; k < setNew.Len(); k++ {
-						if setDB.Index(j).FieldByName("ID").Interface().(uint) == setNew.Index(k).FieldByName("ID").Interface().(uint) {
+						dbIndex := setDB.Index(j)
+						if dbIndex.Kind() == reflect.Ptr {
+							dbIndex = dbIndex.Elem()
+						}
+
+						newIndex := setNew.Index(k)
+						if newIndex.Kind() == reflect.Ptr {
+							newIndex = newIndex.Elem()
+						}
+
+						if dbIndex.FieldByName("ID").Interface().(uint) == newIndex.FieldByName("ID").Interface().(uint) {
 							exists = true
 						}
 					}
