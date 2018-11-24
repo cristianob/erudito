@@ -65,7 +65,12 @@ func (m *maestro) AddModel(model Model) {
 						continue
 					}
 
-					model2 := reflect.Zero(modelType.Field(i).Type.Elem()).Interface().(Model)
+					model2Type := modelType.Field(i).Type.Elem()
+					if model2Type.Kind() == reflect.Ptr {
+						model2Type = model2Type.Elem()
+					}
+
+					model2 := reflect.Zero(model2Type).Interface().(Model)
 					crudOptions2 := model2.CRUDOptions()
 
 					m.addRelation("/"+crudOptions.ModelSingular+"/{id1}/"+crudOptions2.ModelSingular+"/{id2}",
