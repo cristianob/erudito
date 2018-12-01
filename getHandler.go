@@ -55,8 +55,8 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 			return
 		}
 
-		softDeleted, ok := r.URL.Query()["del"]
-		if ok {
+		softDeleted, softDeletedOK := r.URL.Query()["del"]
+		if softDeletedOK {
 			if softDeleted[0] == "true" {
 				db = db.Unscoped()
 			}
@@ -71,8 +71,10 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 
 			for _, rel := range rels {
 				db = db.Preload(upperCamelCase(rel), func(dbPreload *gorm.DB) *gorm.DB {
-					if softDeleted[0] == "true" {
-						dbPreload = dbPreload.Unscoped()
+					if softDeletedOK {
+						if softDeleted[0] == "true" {
+							dbPreload = dbPreload.Unscoped()
+						}
 					}
 
 					return dbPreload
