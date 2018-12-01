@@ -31,6 +31,13 @@ func CollectionCountHandler(model Model, maestro *maestro) http.HandlerFunc {
 			return
 		}
 
+		softDeleted, ok := r.URL.Query()["del"]
+		if ok {
+			if softDeleted[0] == "true" {
+				db = db.Unscoped()
+			}
+		}
+
 		if order, ok := r.URL.Query()["order"]; ok {
 			db = db.Order(order[0])
 		}
@@ -50,21 +57,27 @@ func CollectionCountHandler(model Model, maestro *maestro) http.HandlerFunc {
 			fieldJSON := modelType.Field(i).Tag.Get("json")
 
 			if getField, ok := r.URL.Query()[fieldJSON]; ok {
-				switch modelType.Field(i).Type.Kind() {
-				case reflect.String:
-					db = db.Where(fieldJSON+" LIKE ?", getField)
+				for _, getFieldItem := range getField {
+					getFields := strings.Split(getFieldItem, "|")
 
-				case reflect.Int, reflect.Uint:
-					db = db.Where(fieldJSON+" = ?", getField)
+					for gi, gf := range getFields {
+						switch modelType.Field(i).Type.Kind() {
+						case reflect.String:
+							if gi == 0 {
+								db = db.Where(fieldJSON+" LIKE ?", gf)
+							} else {
+								db = db.Or(fieldJSON+" LIKE ?", gf)
+							}
+
+						default:
+							if gi == 0 {
+								db = db.Where(fieldJSON+" = ?", gf)
+							} else {
+								db = db.Or(fieldJSON+" = ?", gf)
+							}
+						}
+					}
 				}
-			}
-
-			if getField, ok := r.URL.Query()[fieldJSON+"_egt"]; ok {
-				db = db.Where(fieldJSON+" >= ?", getField)
-			}
-
-			if getField, ok := r.URL.Query()[fieldJSON+"_elt"]; ok {
-				db = db.Where(fieldJSON+" <= ?", getField)
 			}
 		}
 
@@ -74,13 +87,6 @@ func CollectionCountHandler(model Model, maestro *maestro) http.HandlerFunc {
 
 			for _, rel := range rels {
 				db = db.Preload(upperCamelCase(rel))
-			}
-		}
-
-		softDeleted, ok := r.URL.Query()["del"]
-		if ok {
-			if softDeleted[0] == "true" {
-				db = db.Unscoped()
 			}
 		}
 

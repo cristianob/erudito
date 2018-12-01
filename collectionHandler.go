@@ -27,6 +27,13 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 			return
 		}
 
+		softDeleted, ok := r.URL.Query()["del"]
+		if ok {
+			if softDeleted[0] == "true" {
+				db = db.Unscoped()
+			}
+		}
+
 		if order, ok := r.URL.Query()["order"]; ok {
 			db = db.Order(order[0])
 		}
@@ -92,13 +99,6 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 
 			for _, rel := range rels {
 				db = db.Preload(upperCamelCase(rel))
-			}
-		}
-
-		softDeleted, ok := r.URL.Query()["del"]
-		if ok {
-			if softDeleted[0] == "true" {
-				db = db.Unscoped()
 			}
 		}
 
