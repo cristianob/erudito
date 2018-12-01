@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+
+	"github.com/jinzhu/gorm"
 )
 
 func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
@@ -53,6 +55,13 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 			return
 		}
 
+		softDeleted, ok := r.URL.Query()["del"]
+		if ok {
+			if softDeleted[0] == "true" {
+				db = db.Unscoped()
+			}
+		}
+
 		/*
 		 * Database Search for the Resource
 		 */
@@ -61,14 +70,13 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 			rels := strings.Split(relString[0], ",")
 
 			for _, rel := range rels {
-				db = db.Preload(upperCamelCase(rel))
-			}
-		}
+				db = db.Preload(upperCamelCase(rel), func(dbPreload *gorm.DB) *gorm.DB {
+					if softDeleted[0] == "true" {
+						dbPreload = dbPreload.Unscoped()
+					}
 
-		softDeleted, ok := r.URL.Query()["del"]
-		if ok {
-			if softDeleted[0] == "true" {
-				db = db.Unscoped()
+					return dbPreload
+				})
 			}
 		}
 
