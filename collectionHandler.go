@@ -46,12 +46,26 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 			fieldJSON := modelType.Field(i).Tag.Get("json")
 
 			if getField, ok := r.URL.Query()[fieldJSON]; ok {
-				switch modelType.Field(i).Type.Kind() {
-				case reflect.String:
-					db = db.Where(fieldJSON+" LIKE ?", getField)
+				for _, getFieldItem := range getField {
+					getFields := strings.Split(getFieldItem, "|")
 
-				default:
-					db = db.Where(fieldJSON+" = ?", getField)
+					for gi, gf := range getFields {
+						switch modelType.Field(i).Type.Kind() {
+						case reflect.String:
+							if gi == 0 {
+								db = db.Where(fieldJSON+" LIKE ?", gf)
+							} else {
+								db = db.Or(fieldJSON+" LIKE ?", gf)
+							}
+
+						default:
+							if gi == 0 {
+								db = db.Where(fieldJSON+" = ?", gf)
+							} else {
+								db = db.Or(fieldJSON+" = ?", gf)
+							}
+						}
+					}
 				}
 			}
 
