@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+
+	"github.com/jinzhu/gorm"
 )
 
 func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
@@ -98,7 +100,13 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 			rels := strings.Split(relString[0], ",")
 
 			for _, rel := range rels {
-				db = db.Preload(upperCamelCase(rel))
+				db = db.Preload(upperCamelCase(rel), func(dbPreload *gorm.DB) *gorm.DB {
+					if softDeleted[0] == "true" {
+						dbPreload = dbPreload.Unscoped()
+					}
+
+					return dbPreload
+				})
 			}
 		}
 
