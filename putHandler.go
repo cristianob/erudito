@@ -10,8 +10,10 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "PUT")
 
+		var metaData map[string]interface{}
+		var beforeErrors []JSendErrorDescription
 		if maestro.beforeRequestCallback != nil {
-			beforeErrors := maestro.beforeRequestCallback(r)
+			beforeErrors, metaData = maestro.beforeRequestCallback(r)
 			if beforeErrors != nil {
 				SendError(w, 403, beforeErrors)
 				return
@@ -109,7 +111,7 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * Recursive Validation and Cleaning
 		 */
-		validationErrors := validateAndClearPUT(modelType, modelNewValue, maestro, r, []string{}, nil)
+		validationErrors := validateAndClearPUT(modelType, modelNewValue, maestro, r, metaData, []string{}, nil)
 
 		if len(validationErrors) > 0 {
 			SendError(w, http.StatusForbidden, validationErrors)
@@ -151,7 +153,7 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 
 }
 
-func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maestro, r *http.Request, stack []string, slicePos *uint) []JSendErrorDescription {
+func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maestro, r *http.Request, metaData map[string]interface{}, stack []string, slicePos *uint) []JSendErrorDescription {
 	// Final array of errors
 	validationErrors := []JSendErrorDescription{}
 
@@ -162,6 +164,7 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 			reflect.ValueOf(maestro.dBPoolCallback(r)),
 			reflect.ValueOf(r),
 			source,
+			reflect.ValueOf(metaData),
 		})
 
 		if errs := beforePUTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
@@ -200,11 +203,11 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 				model.Field(i).Type == reflect.TypeOf(HardDeleteModel{}) ||
 				model.Field(i).Type == reflect.TypeOf(SimpleModel{}) {
 				// If is a Erudito model, whe do recursion
-				validationErrors = append(validationErrors, validateAndClearPUT(model.Field(i).Type, source.Field(i).Addr(), maestro, r, append(stack, model.Field(i).Tag.Get("json")), nil)...)
+				validationErrors = append(validationErrors, validateAndClearPUT(model.Field(i).Type, source.Field(i).Addr(), maestro, r, metaData, append(stack, model.Field(i).Tag.Get("json")), nil)...)
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
-					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
 				}
 			}
 
@@ -216,11 +219,11 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 
 				if source.Field(i).Index(j).Kind() == reflect.Struct {
 					// If is a struct, we do recursion
-					validationErrors = append(validationErrors, validateAndClearPUT(source.Field(i).Index(j).Type(), source.Field(i).Index(j).Addr(), maestro, r, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
+					validationErrors = append(validationErrors, validateAndClearPUT(source.Field(i).Index(j).Type(), source.Field(i).Index(j).Addr(), maestro, r, metaData, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
 				} else {
 					// If not, whe validate the field (if the model has the function)
 					if hasValidateField {
-						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
 					}
 				}
 			}
@@ -233,7 +236,7 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
-					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
 				}
 			}
 		}

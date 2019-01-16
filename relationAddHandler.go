@@ -9,8 +9,9 @@ func RelationAddHandler(model1, model2 Model, fieldName string, maestro *maestro
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "PUT")
 
+		var beforeErrors []JSendErrorDescription
 		if maestro.beforeRequestCallback != nil {
-			beforeErrors := maestro.beforeRequestCallback(r)
+			beforeErrors, _ = maestro.beforeRequestCallback(r)
 			if beforeErrors != nil {
 				SendError(w, 403, beforeErrors)
 				return

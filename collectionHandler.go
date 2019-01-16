@@ -12,8 +12,10 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "GET")
 
+		var metaData map[string]interface{}
+		var beforeErrors []JSendErrorDescription
 		if maestro.beforeRequestCallback != nil {
-			beforeErrors := maestro.beforeRequestCallback(r)
+			beforeErrors, metaData = maestro.beforeRequestCallback(r)
 			if beforeErrors != nil {
 				SendError(w, 403, beforeErrors)
 				return
@@ -129,6 +131,7 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 					reflect.ValueOf(maestro.dBPoolCallback(r)),
 					reflect.ValueOf(r),
 					modelSlice.Elem().Index(el).Addr(),
+					reflect.ValueOf(metaData),
 				})
 
 				if beforeCollectionResponse[0].Interface().(bool) {

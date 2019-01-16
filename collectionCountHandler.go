@@ -16,8 +16,9 @@ func CollectionCountHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "GET")
 
+		var beforeErrors []JSendErrorDescription
 		if maestro.beforeRequestCallback != nil {
-			beforeErrors := maestro.beforeRequestCallback(r)
+			beforeErrors, _ = maestro.beforeRequestCallback(r)
 			if beforeErrors != nil {
 				SendError(w, 403, beforeErrors)
 				return

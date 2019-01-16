@@ -13,7 +13,7 @@ import (
 type maestro struct {
 	router                *mux.Router
 	models                []interface{}
-	beforeRequestCallback func(r *http.Request) []JSendErrorDescription
+	beforeRequestCallback func(r *http.Request) ([]JSendErrorDescription, map[string]interface{})
 	dBPoolCallback        func(r *http.Request) *gorm.DB
 }
 
@@ -29,7 +29,7 @@ func (m *maestro) GetRouter() *mux.Router {
 	return m.router
 }
 
-func (m *maestro) SetBeforeRequestCallback(cb func(r *http.Request) []JSendErrorDescription) {
+func (m *maestro) SetBeforeRequestCallback(cb func(r *http.Request) ([]JSendErrorDescription, map[string]interface{})) {
 	m.beforeRequestCallback = cb
 }
 

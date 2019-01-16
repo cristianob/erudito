@@ -74,11 +74,17 @@ func MakeArrayDataStruct(dataType reflect.Type, data reflect.Value) interface{} 
 					MethodByName("CRUDOptions").Call([]reflect.Value{})[0].
 					FieldByName("ModelPlural").String() + "\""),
 		},
+		{
+			Name: "Count",
+			Type: reflect.TypeOf(0),
+			Tag:  reflect.StructTag("json:\"count\""),
+		},
 	}
 
 	sr := reflect.ValueOf(reflect.New(reflect.StructOf(sfs)).Interface())
 
 	sr.Elem().Field(0).Set(data)
+	sr.Elem().Field(1).Set(reflect.ValueOf(data.Len()))
 
 	return sr.Interface()
 }

@@ -12,8 +12,10 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "GET")
 
+		var metaData map[string]interface{}
+		var beforeErrors []JSendErrorDescription
 		if maestro.beforeRequestCallback != nil {
-			beforeErrors := maestro.beforeRequestCallback(r)
+			beforeErrors, metaData = maestro.beforeRequestCallback(r)
 			if beforeErrors != nil {
 				SendError(w, 403, beforeErrors)
 				return
@@ -38,6 +40,7 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 			beforeGETr := reflect.ValueOf(model).MethodByName("BeforeGET").Call([]reflect.Value{
 				reflect.ValueOf(maestro.dBPoolCallback(r)),
 				reflect.ValueOf(r),
+				reflect.ValueOf(metaData),
 			})
 
 			if errs := beforeGETr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
@@ -96,6 +99,7 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 				reflect.ValueOf(maestro.dBPoolCallback(r)),
 				reflect.ValueOf(r),
 				reflect.ValueOf(modelNew),
+				reflect.ValueOf(metaData),
 			})
 
 			if errs := beforeGETResponseR[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {

@@ -11,8 +11,10 @@ func PostHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "POST")
 
+		var metaData map[string]interface{}
+		var beforeErrors []JSendErrorDescription
 		if maestro.beforeRequestCallback != nil {
-			beforeErrors := maestro.beforeRequestCallback(r)
+			beforeErrors, metaData = maestro.beforeRequestCallback(r)
 			if beforeErrors != nil {
 				SendError(w, 403, beforeErrors)
 				return
@@ -43,7 +45,7 @@ func PostHandler(model Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * Recursive Validation and Cleaning
 		 */
-		validationErrors := validateAndClearPOST(modelType, modelPostValue, maestro, r, []string{}, nil)
+		validationErrors := validateAndClearPOST(modelType, modelPostValue, maestro, r, metaData, []string{}, nil)
 
 		if len(validationErrors) > 0 {
 			SendError(w, http.StatusForbidden, validationErrors)
@@ -71,7 +73,7 @@ func PostHandler(model Model, maestro *maestro) http.HandlerFunc {
 	})
 }
 
-func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *maestro, r *http.Request, stack []string, slicePos *uint) []JSendErrorDescription {
+func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *maestro, r *http.Request, metaData map[string]interface{}, stack []string, slicePos *uint) []JSendErrorDescription {
 	// Final array of errors
 	validationErrors := []JSendErrorDescription{}
 
@@ -82,6 +84,7 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 			reflect.ValueOf(maestro.dBPoolCallback(r)),
 			reflect.ValueOf(r),
 			source,
+			reflect.ValueOf(metaData),
 		})
 
 		if errs := beforePOSTr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
@@ -115,11 +118,11 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 				model.Field(i).Type == reflect.TypeOf(HardDeleteModel{}) ||
 				model.Field(i).Type == reflect.TypeOf(SimpleModel{}) {
 				// If is a Erudito model, whe do recursion
-				validationErrors = append(validationErrors, validateAndClearPOST(model.Field(i).Type, source.Field(i).Addr(), maestro, r, append(stack, model.Field(i).Tag.Get("json")), nil)...)
+				validationErrors = append(validationErrors, validateAndClearPOST(model.Field(i).Type, source.Field(i).Addr(), maestro, r, metaData, append(stack, model.Field(i).Tag.Get("json")), nil)...)
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
-					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
 				}
 			}
 
@@ -131,11 +134,11 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 
 				if source.Field(i).Index(j).Kind() == reflect.Struct {
 					// If is a struct, we do recursion
-					validationErrors = append(validationErrors, validateAndClearPOST(source.Field(i).Index(j).Type(), source.Field(i).Index(j).Addr(), maestro, r, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
+					validationErrors = append(validationErrors, validateAndClearPOST(source.Field(i).Index(j).Type(), source.Field(i).Index(j).Addr(), maestro, r, metaData, append(stack, model.Field(i).Tag.Get("json")), &pos)...)
 				} else {
 					// If not, whe validate the field (if the model has the function)
 					if hasValidateField {
-						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
 					}
 				}
 			}
@@ -148,7 +151,7 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
-					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
 				}
 			}
 		}
@@ -157,11 +160,12 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 	return validationErrors
 }
 
-func validateField(modelField reflect.StructField, sourceField reflect.Value, source reflect.Value, stack []string, slicePos *uint) []JSendErrorDescription {
+func validateField(modelField reflect.StructField, sourceField reflect.Value, source reflect.Value, metaData map[string]interface{}, stack []string, slicePos *uint) []JSendErrorDescription {
 	validateFieldr := source.MethodByName("ValidateField").Call([]reflect.Value{
 		reflect.ValueOf(getJSONFieldNameByTag(modelField.Tag.Get("json"))),
 		sourceField,
 		source,
+		reflect.ValueOf(metaData),
 	})
 
 	if errs := validateFieldr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
