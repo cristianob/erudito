@@ -122,7 +122,7 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
-					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
 				}
 			}
 
@@ -138,7 +138,7 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 				} else {
 					// If not, whe validate the field (if the model has the function)
 					if hasValidateField {
-						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
+						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
 					}
 				}
 			}
@@ -151,7 +151,7 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
-					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
 				}
 			}
 		}
@@ -160,12 +160,11 @@ func validateAndClearPOST(model reflect.Type, source reflect.Value, maestro *mae
 	return validationErrors
 }
 
-func validateField(modelField reflect.StructField, sourceField reflect.Value, source reflect.Value, metaData map[string]interface{}, stack []string, slicePos *uint) []JSendErrorDescription {
+func validateField(modelField reflect.StructField, sourceField reflect.Value, source reflect.Value, stack []string, slicePos *uint) []JSendErrorDescription {
 	validateFieldr := source.MethodByName("ValidateField").Call([]reflect.Value{
 		reflect.ValueOf(getJSONFieldNameByTag(modelField.Tag.Get("json"))),
 		sourceField,
 		source,
-		reflect.ValueOf(metaData),
 	})
 
 	if errs := validateFieldr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {

@@ -207,7 +207,7 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
-					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
 				}
 			}
 
@@ -223,7 +223,7 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 				} else {
 					// If not, whe validate the field (if the model has the function)
 					if hasValidateField {
-						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
+						validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
 					}
 				}
 			}
@@ -236,7 +236,7 @@ func validateAndClearPUT(model reflect.Type, source reflect.Value, maestro *maes
 			} else {
 				// If not, whe validate the field (if the model has the function)
 				if hasValidateField {
-					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), metaData, stack, slicePos)...)
+					validationErrors = append(validationErrors, validateField(model.Field(i), source.Field(i), source.Addr(), stack, slicePos)...)
 				}
 			}
 		}
