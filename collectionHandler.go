@@ -31,6 +31,29 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 			return
 		}
 
+		/*
+		 * BeforeCollection Handler
+		 */
+		_, ok := reflect.TypeOf(model).MethodByName("BeforeCollection")
+		if ok {
+			beforeCollectionr := reflect.ValueOf(model).MethodByName("BeforeCollection").Call([]reflect.Value{
+				reflect.ValueOf(db),
+				reflect.ValueOf(r),
+				reflect.ValueOf(metaData),
+			})
+
+			if errs := beforeCollectionr[1].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+				SendError(w, http.StatusForbidden, errs)
+				return
+			}
+
+			db = beforeCollectionr[0].Interface().(*gorm.DB)
+		}
+
+		/*
+		 * Search and Criterias
+		 */
+
 		softDeleted, softDeletedOK := r.URL.Query()["del"]
 		if softDeletedOK {
 			if softDeleted[0] == "true" {
