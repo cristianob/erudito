@@ -38,15 +38,17 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 		_, ok := reflect.TypeOf(model).MethodByName("BeforeGET")
 		if ok {
 			beforeGETr := reflect.ValueOf(model).MethodByName("BeforeGET").Call([]reflect.Value{
-				reflect.ValueOf(maestro.dBPoolCallback(r)),
+				reflect.ValueOf(db),
 				reflect.ValueOf(r),
 				reflect.ValueOf(metaData),
 			})
 
-			if errs := beforeGETr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
+			if errs := beforeGETr[1].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
 				SendError(w, http.StatusForbidden, errs)
 				return
 			}
+
+			db = beforeGETr[0].Interface().(*gorm.DB)
 		}
 
 		/*
