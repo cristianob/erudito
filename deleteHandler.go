@@ -35,7 +35,7 @@ func DeleteHandler(model Model, maestro *maestro) http.HandlerFunc {
 		}
 
 		for i := 0; i < modelType.NumField(); i++ {
-			if checkIfTagExists("DELETEautoremove", modelType.Field(i).Tag.Get("erudito")) {
+			if checkIfTagExists("DELETEautoremove", modelType.Field(i).Tag.Get("erudito")) || checkIfTagExists("DELETEautodelete", modelType.Field(i).Tag.Get("erudito")) {
 				db = db.Preload(modelType.Field(i).Name)
 			}
 		}
@@ -64,6 +64,20 @@ func DeleteHandler(model Model, maestro *maestro) http.HandlerFunc {
 
 		for i := 0; i < modelType.NumField(); i++ {
 			if checkIfTagExists("DELETEautoremove", modelType.Field(i).Tag.Get("erudito")) {
+				setNew := modelNewValue.Elem().FieldByName(modelType.Field(i).Name)
+				setDelete := []reflect.Value{}
+
+				for j := 0; j < setNew.Len(); j++ {
+					setDelete = append(setDelete, setNew.Index(j))
+				}
+
+				for _, modelRemove := range setDelete {
+					db2 := maestro.dBPoolCallback(r)
+					db2.Model(modelNew).Association(modelType.Field(i).Name).Delete(modelRemove.Interface())
+				}
+			}
+
+			if checkIfTagExists("DELETEautodelete", modelType.Field(i).Tag.Get("erudito")) {
 				setNew := modelNewValue.Elem().FieldByName(modelType.Field(i).Name)
 				setDelete := []reflect.Value{}
 

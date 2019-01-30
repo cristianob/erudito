@@ -60,7 +60,7 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 
 		// Preloading fields
 		for i := 0; i < modelType.NumField(); i++ {
-			if checkIfTagExists("PUTautoremove", modelType.Field(i).Tag.Get("erudito")) {
+			if checkIfTagExists("PUTautoremove", modelType.Field(i).Tag.Get("erudito")) || checkIfTagExists("PUTautodelete", modelType.Field(i).Tag.Get("erudito")) {
 				db = db.Preload(modelType.Field(i).Name)
 			}
 		}
@@ -74,6 +74,13 @@ func PutHandler(model Model, maestro *maestro) http.HandlerFunc {
 		// Getting diff and removing
 		for i := 0; i < modelType.NumField(); i++ {
 			if checkIfTagExists("PUTautoremove", modelType.Field(i).Tag.Get("erudito")) {
+				setNew := modelNewValue.Elem().FieldByName(modelType.Field(i).Name)
+
+				db2 := maestro.dBPoolCallback(r)
+				db2.Model(modelNew).Association(modelType.Field(i).Name).Replace(setNew.Interface())
+			}
+
+			if checkIfTagExists("PUTautodelete", modelType.Field(i).Tag.Get("erudito")) {
 				setDB := modelDBValue.Elem().FieldByName(modelType.Field(i).Name)
 				setNew := modelNewValue.Elem().FieldByName(modelType.Field(i).Name)
 				setDiference := []reflect.Value{}
