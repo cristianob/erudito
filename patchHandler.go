@@ -88,7 +88,9 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 			}
 
 			// If is a ponter in model, turn to a pointer
-			if modelType.Field(i).Type.AssignableTo(reflect.PtrTo(reflect.TypeOf(modelSent[jsonFieldName]))) {
+			if reflect.TypeOf(modelSent[jsonFieldName]) == nil {
+				modelSent[jsonFieldName] = nil
+			} else if modelType.Field(i).Type.AssignableTo(reflect.PtrTo(reflect.TypeOf(modelSent[jsonFieldName]))) {
 				newValue := reflect.New(reflect.TypeOf(modelSent[jsonFieldName]))
 				newValue.Elem().Set(reflect.ValueOf(modelSent[jsonFieldName]))
 				modelSent[jsonFieldName] = newValue.Interface()
