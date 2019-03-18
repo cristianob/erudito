@@ -112,6 +112,20 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 			}
 		}
 
+		if getField, ok := r.URL.Query()["id"]; ok {
+			for _, getFieldItem := range getField {
+				getFields := strings.Split(getFieldItem, "|")
+
+				for gi, gf := range getFields {
+					if gi == 0 {
+						db = db.Where("id = ?", gf)
+					} else {
+						db = db.Or("id = ?", gf)
+					}
+				}
+			}
+		}
+
 		if getField, ok := r.URL.Query()["created_at_egt"]; ok {
 			db = db.Where("created_at >= ?", getField)
 		}
