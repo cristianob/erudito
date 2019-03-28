@@ -49,7 +49,7 @@ func (m *maestro) AddModel(model Model) {
 
 	if crudOptions.AcceptPOST {
 		m.addPOST("/"+crudOptions.ModelSingular, crudOptions.ModelSingular+" POST", model)
-		m.addOPTION("/"+crudOptions.ModelSingular, crudOptions.ModelSingular+" OPTION", []string{"POST"})
+		m.AddOPTION("/"+crudOptions.ModelSingular, crudOptions.ModelSingular+" OPTION", []string{"POST"})
 
 		modelType := reflect.TypeOf(model)
 		for i := 0; i < modelType.NumField(); i++ {
@@ -87,7 +87,7 @@ func (m *maestro) AddModel(model Model) {
 						model2,
 					)
 
-					m.addOPTION("/"+crudOptions.ModelSingular+"/{id1}/"+crudOptions2.ModelSingular+"/{id2}",
+					m.AddOPTION("/"+crudOptions.ModelSingular+"/{id1}/"+crudOptions2.ModelSingular+"/{id2}",
 						crudOptions.ModelSingular+" - "+crudOptions2.ModelSingular+" Relation OPTIONS",
 						[]string{"PUT", "DELETE"},
 					)
@@ -113,25 +113,24 @@ func (m *maestro) AddModel(model Model) {
 
 	if crudOptions.AcceptCollection {
 		m.addCollection("/"+crudOptions.ModelPlural, crudOptions.ModelSingular+" Collection", model)
-		m.addOPTION("/"+crudOptions.ModelPlural, crudOptions.ModelSingular+" Collection", []string{"GET"})
+		m.AddOPTION("/"+crudOptions.ModelPlural, crudOptions.ModelSingular+" Collection", []string{"GET"})
 		m.addCollectionCount("/"+crudOptions.ModelPlural+"/count", crudOptions.ModelSingular+" Collection Count", model)
-		m.addOPTION("/"+crudOptions.ModelPlural+"/count", crudOptions.ModelSingular+" Collection Count", []string{"GET"})
+		m.AddOPTION("/"+crudOptions.ModelPlural+"/count", crudOptions.ModelSingular+" Collection Count", []string{"GET"})
 	}
 
 	if len(individualMethods) > 0 {
-		m.addOPTION("/"+crudOptions.ModelSingular+"/{id}", crudOptions.ModelSingular+" Model OPTIONS", individualMethods)
+		m.AddOPTION("/"+crudOptions.ModelSingular+"/{id}", crudOptions.ModelSingular+" Model OPTIONS", individualMethods)
 	}
 }
 
 func (m *maestro) AddHealthCheck() {
 	m.addRoute("GET", "/health", "HealthCheck", HealthCheckHandler(m))
-	m.addOPTION("/health", "HealthCheck OPTIONS", []string{"GET"})
+	m.AddOPTION("/health", "HealthCheck OPTIONS", []string{"GET"})
 	log.Println("[ERUDITO] Added route GET /health")
 }
 
 func (m *maestro) AddRoute(path, method, name string, handler func(func(r *http.Request) *gorm.DB) http.HandlerFunc) {
 	m.addRoute(method, path, name, handler(m.dBPoolCallback))
-	m.addOPTION(path, name+" OPTIONS", []string{method})
 	log.Println("[ERUDITO] Added route " + method + " " + path)
 }
 
@@ -188,6 +187,6 @@ func (m *maestro) addDelete(path, name string, model Model) {
 	log.Println("[ERUDITO] Added route DELETE " + path)
 }
 
-func (m *maestro) addOPTION(path, name string, methods []string) {
+func (m *maestro) AddOPTION(path, name string, methods []string) {
 	m.addRoute("OPTIONS", path, name, OptionsHandler(methods))
 }
