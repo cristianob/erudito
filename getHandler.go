@@ -119,6 +119,6 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 			}
 		}
 
-		SendData(w, http.StatusOK, MakeSingularDataStruct(modelType, modelNew))
+		SendData(w, http.StatusOK, MakeSingularDataStruct(modelType, modelNew, modelStructure{}))
 	})
 }

@@ -1,0 +1,41 @@
+version: '2'
+
+volumes:
+  erudito-test-data:
+
+services:
+  db:
+    image: mysql:5.7.22
+    ports:
+      - "3306:3306"
+    volumes:
+      - erudito-test-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: erudito
+      MYSQL_DATABASE: erudito
+
+  myadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    depends_on:
+      - db
+    ports:
+      - "8001:80"
+    environment:
+      PMA_HOST: db
+
+  erudito:
+    image: canthefason/go-watcher:latest
+    volumes:
+      - /home/cristiano/go/src/github.com/cristianob/erudito:/go/src/github.com/cristianob/erudito
+    command: watcher -run github.com/cristianob/erudito/test
+    depends_on:
+      - db
+    ports:
+      - "8000:80"
+    environment:
+      GO_VERSION: 1.10
+      DB_USERNAME: root
+      DB_PASSWORD: erudito
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_PREFIX: erudito

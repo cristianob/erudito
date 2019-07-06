@@ -57,7 +57,7 @@ func RelationAddHandler(model1, model2 Model, fieldName string, maestro *maestro
 			return
 		}
 
-		SendData(w, http.StatusAccepted, MakeSingularDataStruct(model1Type, model1DB))
+		SendData(w, http.StatusAccepted, MakeSingularDataStruct(model1Type, model1DB, modelStructure{}))
 	})
 
 }

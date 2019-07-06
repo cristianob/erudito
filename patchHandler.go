@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"reflect"
 	"time"
+
+	"github.com/cristianob/erudito/nulls"
 )
 
 func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
@@ -122,7 +124,7 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 			}
 
 			// If is a time field, we convert to SQL format
-			if modelType.Field(i).Type.AssignableTo(reflect.TypeOf(NullTime{})) ||
+			if modelType.Field(i).Type.AssignableTo(reflect.TypeOf(nulls.Time{})) ||
 				modelType.Field(i).Type.AssignableTo(reflect.TypeOf(time.Time{})) {
 
 				if reflect.TypeOf(modelSent[jsonFieldName]).Kind() != reflect.String {
@@ -163,6 +165,6 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 			return
 		}
 
-		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelDB))
+		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelDB, modelStructure{}))
 	})
 }

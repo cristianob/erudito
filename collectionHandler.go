@@ -187,6 +187,6 @@ func CollectionHandler(model Model, maestro *maestro) http.HandlerFunc {
 			}
 		}
 
-		SendData(w, http.StatusOK, MakeArrayDataStruct(modelType, modelSliceRemoved))
+		SendData(w, http.StatusOK, MakeArrayDataStruct(modelType, modelSliceRemoved, modelStructure{}))
 	})
 }
