@@ -68,8 +68,8 @@ type B struct {
 
 	Cs []C `json:"cs,omitempty" gorm:"many2many:b_c;" erudito:"PUTautoremove"`
 
-	E   *E   `json:"e,omitempty" gorm:"foreignkey:EID"`
-	EID uint `json:"e_id" eruditoType:"REL_ID"`
+	E   *E           `json:"e,omitempty" gorm:"foreignkey:EID"`
+	EID nulls.UInt32 `json:"e_id" eruditoType:"REL_ID"`
 }
 
 func (B) CRUDOptions() erudito.CRUDOptions {

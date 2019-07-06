@@ -64,6 +64,10 @@ func generatePostModel(w http.ResponseWriter, r *http.Request, db *gorm.DB, mode
 		} else if field.Type == FIELD_TYPE_RELATION_COL_MODELS {
 			relationalArray := reflect.New(modelField.Type()).Elem()
 
+			if reflect.TypeOf(value) != reflect.TypeOf([]interface{}{}) {
+				return nil, nil, &[]JSendErrorDescription{{Code: "FIELD_WRONG_TYPE", Message: "Field " + field.JsonName + " is in a wrong type, it needs to be a model ARRAY"}}
+			}
+
 			for _, mapIndex := range value.([]interface{}) {
 				if !reflect.TypeOf(mapIndex).AssignableTo(reflect.TypeOf(map[string]interface{}{})) {
 					return nil, nil, &[]JSendErrorDescription{{Code: "FIELD_WRONG_TYPE", Message: "Field " + field.JsonName + " is in a wrong type, it needs to be a MODEL array"}}
@@ -295,6 +299,8 @@ func insertMultipleRelations(db *gorm.DB, modelType reflect.Type, modelS modelSt
 		modelResponseElem = modelResponse.Elem()
 	}
 
+	log.Println(root, modelResponseElem)
+
 	mapResponse := structs.Map(modelResponse.Interface())
 
 	var modelID uint = 0
@@ -313,7 +319,24 @@ func insertMultipleRelations(db *gorm.DB, modelType reflect.Type, modelS modelSt
 	for key, value := range modelUnmarshal {
 		field := modelS.getFieldByJson(key)
 
-		if field.Type == FIELD_TYPE_RELATION_COL_IDS {
+		modelField := modelResponseElem.FieldByName(field.Name)
+
+		if field.Type == FIELD_TYPE_RELATION_COL_MODELS {
+			relationalArray := reflect.New(modelField.Type()).Elem()
+
+			for i, mapIndex := range value.([]interface{}) {
+				var relationalModel interface{}
+				var err *[]JSendErrorDescription
+				relationalModel, err = insertMultipleRelations(db, modelField.Type().Elem(), maestro.getModelStructureByName(field.RelationalModel), mapIndex.(map[string]interface{}), modelField.Index(i), maestro, false)
+				if err != nil {
+					return nil, err
+				}
+
+				relationalArray = reflect.Append(relationalArray, reflect.ValueOf(relationalModel))
+			}
+
+			modelField.Set(relationalArray)
+		} else if field.Type == FIELD_TYPE_RELATION_COL_IDS {
 			fieldStructure := modelS.getFieldByJson(key)
 			relationalModel := maestro.getModelStructureByName(fieldStructure.RelationalModel)
 			modelFieldName := strings.Replace(field.Name, "IDs", "", -1)
