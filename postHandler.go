@@ -23,11 +23,13 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * DB Connection
 		 */
-		db := maestro.dBPoolCallback(r, metaData)
-		if db == nil {
+		dbConn := maestro.dBPoolCallback(r, metaData)
+		if dbConn == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
+
+		db := dbConn.Begin()
 
 		/*
 		 * JSON Unmarshal
@@ -35,6 +37,7 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		var modelUnmarshal map[string]interface{}
 
 		if err := json.NewDecoder(r.Body).Decode(&modelUnmarshal); err != nil {
+			db.Rollback()
 			SendSingleError(w, http.StatusUnprocessableEntity, "Given request body is invalid: "+err.Error(), "")
 			return
 		}
@@ -47,6 +50,7 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		modelGenerated, metaData, err := generatePostModel(w, r, db, modelType, modelS, modelUnmarshal, maestro, metaData, MIDDLEWARE_TYPE_POST, true)
 
 		if err != nil {
+			db.Rollback()
 			SendError(w, http.StatusForbidden, *err)
 			return
 		}
@@ -55,6 +59,7 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		 * Insert in DB
 		 */
 		if err := db.Save(modelGenerated).Error; err != nil {
+			db.Rollback()
 			SendSingleError(w, http.StatusForbidden, "Cannot create a new record - "+err.Error(), "ENTITY_CREATE_ERROR")
 			return
 		}
@@ -65,6 +70,7 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		modelGenerated, err = insertMultipleRelations(w, r, db, modelType, modelS, modelUnmarshal, reflect.ValueOf(modelGenerated).Elem(), maestro, true)
 
 		if err != nil {
+			db.Rollback()
 			SendError(w, http.StatusForbidden, *err)
 			return
 		}
@@ -75,9 +81,12 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		modelGenerated, _, err = generateReturnModel(w, r, db, modelType, modelS, reflect.ValueOf(modelGenerated), maestro, metaData, MIDDLEWARE_TYPE_POST, true)
 
 		if err != nil {
+			db.Rollback()
 			SendError(w, http.StatusForbidden, *err)
 			return
 		}
+
+		db.Commit()
 
 		SendData(w, http.StatusCreated, MakeSingularDataStruct(modelType, modelGenerated, modelS))
 	})

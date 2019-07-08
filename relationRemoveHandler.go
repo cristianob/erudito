@@ -11,6 +11,7 @@ func RelationRemoveHandler(model1, model2 Model, fieldName string, maestro *maes
 
 		model1Type := reflect.ValueOf(model1).Type()
 		model2Type := reflect.ValueOf(model2).Type()
+		modelS := maestro.getModelStructure(model1)
 
 		model1DB := reflect.New(model1Type).Interface()
 		model2DB := reflect.New(model2Type).Interface()
@@ -20,7 +21,7 @@ func RelationRemoveHandler(model1, model2 Model, fieldName string, maestro *maes
 		 */
 		metaData := MiddlewareMetaData{}
 
-		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_POST)
+		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_RELATION)
 		if mwInitial.Error != nil {
 			SendError(w, http.StatusForbidden, *mwInitial.Error)
 		}
@@ -61,7 +62,14 @@ func RelationRemoveHandler(model1, model2 Model, fieldName string, maestro *maes
 			return
 		}
 
-		SendData(w, http.StatusAccepted, MakeSingularDataStruct(model1Type, model1DB, modelStructure{}))
+		modelGenerated, _, errR := generateReturnModel(w, r, db, model1Type, modelS, reflect.ValueOf(model1DB), maestro, metaData, MIDDLEWARE_TYPE_RELATION, true)
+
+		if err != nil {
+			SendError(w, http.StatusForbidden, *errR)
+			return
+		}
+
+		SendData(w, http.StatusAccepted, MakeSingularDataStruct(model1Type, modelGenerated, modelS))
 	})
 
 }

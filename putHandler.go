@@ -24,7 +24,7 @@ func PutHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		 */
 		metaData := MiddlewareMetaData{}
 
-		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_POST)
+		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_PUT)
 		if mwInitial.Error != nil {
 			SendError(w, http.StatusForbidden, *mwInitial.Error)
 		}
@@ -32,11 +32,13 @@ func PutHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * DB Connection
 		 */
-		db := maestro.dBPoolCallback(r, metaData)
-		if db == nil {
+		dbConn := maestro.dBPoolCallback(r, metaData)
+		if dbConn == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
 		}
+
+		db := dbConn.Begin()
 
 		/*
 		 * JSON Unmarshal
@@ -58,6 +60,7 @@ func PutHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		modelGenerated, metaData, err := generatePostModel(w, r, db, modelType, modelS, modelUnmarshal, maestro, metaData, MIDDLEWARE_TYPE_PUT, false)
 
 		if err != nil {
+			db.Rollback()
 			SendError(w, http.StatusForbidden, *err)
 			return
 		}
@@ -66,6 +69,7 @@ func PutHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		 * Insert in DB
 		 */
 		if err := db.Save(modelGenerated).Error; err != nil {
+			db.Rollback()
 			SendSingleError(w, http.StatusForbidden, "Cannot create a new record - "+err.Error(), "ENTITY_CREATE_ERROR")
 			return
 		}
@@ -76,6 +80,7 @@ func PutHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		modelGenerated, err = insertMultipleRelations(w, r, db, modelType, modelS, modelUnmarshal, reflect.ValueOf(modelGenerated).Elem(), maestro, true)
 
 		if err != nil {
+			db.Rollback()
 			SendError(w, http.StatusForbidden, *err)
 			return
 		}
@@ -86,9 +91,12 @@ func PutHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		modelGenerated, _, err = generateReturnModel(w, r, db, modelType, modelS, reflect.ValueOf(modelGenerated), maestro, metaData, MIDDLEWARE_TYPE_PUT, true)
 
 		if err != nil {
+			db.Rollback()
 			SendError(w, http.StatusForbidden, *err)
 			return
 		}
+
+		db.Commit()
 
 		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelGenerated, modelS))
 	})

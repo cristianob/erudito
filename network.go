@@ -61,11 +61,11 @@ func MakeSingularDataStruct(dataType reflect.Type, data interface{}, modelS mode
 	return sr.Interface()
 }
 
-func MakeArrayDataStruct(dataType reflect.Type, data reflect.Value, modelS modelStructure) interface{} {
+func MakeArrayDataStruct(dataType reflect.Type, data []interface{}, modelS modelStructure) interface{} {
 	sfs := []reflect.StructField{
 		{
 			Name: dataType.Name(),
-			Type: reflect.SliceOf(dataType),
+			Type: reflect.TypeOf([]interface{}{}),
 			Tag:  reflect.StructTag("json:\"" + modelS.Plural + "\""),
 		},
 		{
@@ -77,8 +77,8 @@ func MakeArrayDataStruct(dataType reflect.Type, data reflect.Value, modelS model
 
 	sr := reflect.ValueOf(reflect.New(reflect.StructOf(sfs)).Interface())
 
-	sr.Elem().Field(0).Set(data)
-	sr.Elem().Field(1).Set(reflect.ValueOf(data.Len()))
+	sr.Elem().Field(0).Set(reflect.ValueOf(data))
+	sr.Elem().Field(1).Set(reflect.ValueOf(reflect.ValueOf(data).Len()))
 
 	return sr.Interface()
 }
