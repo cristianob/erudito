@@ -8,47 +8,31 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
+func GetHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "GET")
 
-		var metaData map[string]interface{}
-		var beforeErrors []JSendErrorDescription
-		if maestro.beforeRequestCallback != nil {
-			beforeErrors, metaData = maestro.beforeRequestCallback(r)
-			if beforeErrors != nil {
-				SendError(w, 403, beforeErrors)
-				return
-			}
-		}
-
-		modelType := reflect.ValueOf(model).Type()
+		modelType := reflect.ValueOf(modelZero).Type()
 		modelNew := reflect.New(modelType).Interface()
+		modelS := maestro.getModelStructure(modelZero)
 
-		// Database connection
-		db := maestro.dBPoolCallback(r)
-		if db == nil {
-			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
-			return
+		/*
+		 * Middleware Initial
+		 */
+		metaData := MiddlewareMetaData{}
+
+		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_GET)
+		if mwInitial.Error != nil {
+			SendError(w, http.StatusForbidden, *mwInitial.Error)
 		}
 
 		/*
-		 * BeforeGET Handler
+		 * DB Connection
 		 */
-		_, ok := reflect.TypeOf(model).MethodByName("BeforeGET")
-		if ok {
-			beforeGETr := reflect.ValueOf(model).MethodByName("BeforeGET").Call([]reflect.Value{
-				reflect.ValueOf(db),
-				reflect.ValueOf(r),
-				reflect.ValueOf(metaData),
-			})
-
-			if errs := beforeGETr[1].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
-				SendError(w, http.StatusForbidden, errs)
-				return
-			}
-
-			db = beforeGETr[0].Interface().(*gorm.DB)
+		db := maestro.dBPoolCallback(r, metaData)
+		if db == nil {
+			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
+			return
 		}
 
 		/*
@@ -92,33 +76,13 @@ func GetHandler(model Model, maestro *maestro) http.HandlerFunc {
 			return
 		}
 
-		/*
-		 * BeforeGETResponse Handler
-		 */
-		_, ok = reflect.TypeOf(model).MethodByName("BeforeGETResponse")
-		if ok {
-			beforeGETResponseR := reflect.ValueOf(model).MethodByName("BeforeGETResponse").Call([]reflect.Value{
-				reflect.ValueOf(maestro.dBPoolCallback(r)),
-				reflect.ValueOf(r),
-				reflect.ValueOf(modelNew),
-				reflect.ValueOf(metaData),
-			})
+		modelGenerated, _, errR := generateReturnModel(w, r, db, modelType, modelS, reflect.ValueOf(modelNew), maestro, metaData, MIDDLEWARE_TYPE_GET, true)
 
-			if errs := beforeGETResponseR[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
-				SendError(w, http.StatusForbidden, errs)
-				return
-			}
+		if err != nil {
+			SendError(w, http.StatusForbidden, *errR)
+			return
 		}
 
-		/*
-		 * Removal of the ExcludeGET fields
-		 */
-		for i := 0; i < modelType.NumField(); i++ {
-			if checkIfTagExists("excludeGET", modelType.Field(i).Tag.Get("erudito")) {
-				reflect.ValueOf(modelNew).Elem().Field(i).Set(reflect.Zero(modelType.Field(i).Type))
-			}
-		}
-
-		SendData(w, http.StatusOK, MakeSingularDataStruct(modelType, modelNew))
+		SendData(w, http.StatusOK, MakeSingularDataStruct(modelType, modelGenerated, modelS))
 	})
 }

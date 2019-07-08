@@ -44,17 +44,14 @@ func GetNumericRouteField(r *http.Request, field string) (uint, error) {
 	return uint(fieldVNumeric), nil
 }
 
-func MakeSingularDataStruct(dataType reflect.Type, data interface{}) interface{} {
+func MakeSingularDataStruct(dataType reflect.Type, data interface{}, modelS modelStructure) interface{} {
 	valueOfData := reflect.ValueOf(data)
 
 	sfs := []reflect.StructField{
 		{
 			Name: dataType.Name(),
 			Type: valueOfData.Type(),
-			Tag: reflect.StructTag("json:\"" +
-				valueOfData.MethodByName("CRUDOptions").
-					Call([]reflect.Value{})[0].
-					FieldByName("ModelSingular").String() + "\""),
+			Tag:  reflect.StructTag("json:\"" + modelS.Singular + "\""),
 		},
 	}
 
@@ -64,15 +61,12 @@ func MakeSingularDataStruct(dataType reflect.Type, data interface{}) interface{}
 	return sr.Interface()
 }
 
-func MakeArrayDataStruct(dataType reflect.Type, data reflect.Value) interface{} {
+func MakeArrayDataStruct(dataType reflect.Type, data []interface{}, modelS modelStructure) interface{} {
 	sfs := []reflect.StructField{
 		{
 			Name: dataType.Name(),
-			Type: reflect.SliceOf(dataType),
-			Tag: reflect.StructTag("json:\"" +
-				reflect.Zero(dataType).
-					MethodByName("CRUDOptions").Call([]reflect.Value{})[0].
-					FieldByName("ModelPlural").String() + "\""),
+			Type: reflect.TypeOf([]interface{}{}),
+			Tag:  reflect.StructTag("json:\"" + modelS.Plural + "\""),
 		},
 		{
 			Name: "Count",
@@ -83,8 +77,8 @@ func MakeArrayDataStruct(dataType reflect.Type, data reflect.Value) interface{} 
 
 	sr := reflect.ValueOf(reflect.New(reflect.StructOf(sfs)).Interface())
 
-	sr.Elem().Field(0).Set(data)
-	sr.Elem().Field(1).Set(reflect.ValueOf(data.Len()))
+	sr.Elem().Field(0).Set(reflect.ValueOf(data))
+	sr.Elem().Field(1).Set(reflect.ValueOf(reflect.ValueOf(data).Len()))
 
 	return sr.Interface()
 }

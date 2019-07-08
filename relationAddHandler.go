@@ -9,22 +9,27 @@ func RelationAddHandler(model1, model2 Model, fieldName string, maestro *maestro
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "PUT")
 
-		var beforeErrors []JSendErrorDescription
-		if maestro.beforeRequestCallback != nil {
-			beforeErrors, _ = maestro.beforeRequestCallback(r)
-			if beforeErrors != nil {
-				SendError(w, 403, beforeErrors)
-				return
-			}
-		}
-
 		model1Type := reflect.ValueOf(model1).Type()
 		model2Type := reflect.ValueOf(model2).Type()
+		modelS := maestro.getModelStructure(model1)
 
 		model1DB := reflect.New(model1Type).Interface()
 		model2DB := reflect.New(model2Type).Interface()
 
-		db := maestro.dBPoolCallback(r)
+		/*
+		 * Middleware Initial
+		 */
+		metaData := MiddlewareMetaData{}
+
+		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_RELATION)
+		if mwInitial.Error != nil {
+			SendError(w, http.StatusForbidden, *mwInitial.Error)
+		}
+
+		/*
+		 * DB Connection
+		 */
+		db := maestro.dBPoolCallback(r, metaData)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
@@ -57,7 +62,14 @@ func RelationAddHandler(model1, model2 Model, fieldName string, maestro *maestro
 			return
 		}
 
-		SendData(w, http.StatusAccepted, MakeSingularDataStruct(model1Type, model1DB))
+		modelGenerated, _, errR := generateReturnModel(w, r, db, model1Type, modelS, reflect.ValueOf(model1DB), maestro, metaData, MIDDLEWARE_TYPE_RELATION, true)
+
+		if err != nil {
+			SendError(w, http.StatusForbidden, *errR)
+			return
+		}
+
+		SendData(w, http.StatusAccepted, MakeSingularDataStruct(model1Type, modelGenerated, modelS))
 	})
 
 }

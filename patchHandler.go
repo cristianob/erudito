@@ -5,23 +5,16 @@ import (
 	"net/http"
 	"reflect"
 	"time"
+
+	"github.com/cristianob/erudito/nulls"
 )
 
-func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
+func PatchHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "PATCH")
 
-		var beforeErrors []JSendErrorDescription
-		if maestro.beforeRequestCallback != nil {
-			beforeErrors, _ = maestro.beforeRequestCallback(r)
-			if beforeErrors != nil {
-				SendError(w, 403, beforeErrors)
-				return
-			}
-		}
-
-		modelType := reflect.ValueOf(model).Type()
-		modelNewValue := reflect.New(modelType)
+		modelType := reflect.ValueOf(modelZero).Type()
+		modelS := maestro.getModelStructure(modelZero)
 
 		modelDBValue := reflect.New(modelType)
 		modelDB := modelDBValue.Interface()
@@ -29,9 +22,19 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 		var modelSent map[string]interface{}
 
 		/*
+		 * Middleware Initial
+		 */
+		metaData := MiddlewareMetaData{}
+
+		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_PATCH)
+		if mwInitial.Error != nil {
+			SendError(w, http.StatusForbidden, *mwInitial.Error)
+		}
+
+		/*
 		 * DB Connection
 		 */
-		db := maestro.dBPoolCallback(r)
+		db := maestro.dBPoolCallback(r, metaData)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
@@ -96,33 +99,8 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 				modelSent[jsonFieldName] = newValue.Interface()
 			}
 
-			// Verify if is the same type or a pointer of the type
-			// sameType := reflect.TypeOf(modelSent[jsonFieldName]).AssignableTo(modelType.Field(i).Type)
-			// if !sameType {
-			// 	allErrs = append(allErrs, JSendErrorDescription{
-			// 		Code:    "INVALID_TYPE",
-			// 		Message: "Field '" + jsonFieldName + "' needs to be a " + modelType.Field(i).Type.String(),
-			// 	})
-
-			// 	continue
-			// }
-
-			// Validating fields
-			_, hasValidateField := modelType.MethodByName("ValidateField")
-			if hasValidateField {
-				validateFieldr := modelNewValue.MethodByName("ValidateField").Call([]reflect.Value{
-					reflect.ValueOf(jsonFieldName),
-					reflect.ValueOf(modelSent[jsonFieldName]),
-					modelDBValue,
-				})
-
-				if errs := validateFieldr[0].Interface().([]JSendErrorDescription); errs != nil && len(errs) > 0 {
-					allErrs = append(allErrs, errs...)
-				}
-			}
-
 			// If is a time field, we convert to SQL format
-			if modelType.Field(i).Type.AssignableTo(reflect.TypeOf(NullTime{})) ||
+			if modelType.Field(i).Type.AssignableTo(reflect.TypeOf(nulls.Time{})) ||
 				modelType.Field(i).Type.AssignableTo(reflect.TypeOf(time.Time{})) {
 
 				if reflect.TypeOf(modelSent[jsonFieldName]).Kind() != reflect.String {
@@ -144,7 +122,7 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 					continue
 				}
 
-				modelSent[jsonFieldName] = time.Format("2006-01-02 15:04:05")
+				modelSent[jsonFieldName] = time
 			}
 
 			modelUpdate[jsonFieldName] = modelSent[jsonFieldName]
@@ -163,6 +141,16 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 			return
 		}
 
-		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelDB))
+		/*
+		 * Generate Response
+		 */
+		modelGenerated, _, errR := generateReturnModel(w, r, db, modelType, modelS, reflect.ValueOf(modelDB), maestro, metaData, MIDDLEWARE_TYPE_PATCH, true)
+
+		if errR != nil {
+			SendError(w, http.StatusForbidden, *errR)
+			return
+		}
+
+		SendData(w, http.StatusAccepted, MakeSingularDataStruct(modelType, modelGenerated, modelS))
 	})
 }
