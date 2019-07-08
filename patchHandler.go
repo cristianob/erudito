@@ -13,15 +13,6 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "PATCH")
 
-		var beforeErrors []JSendErrorDescription
-		if maestro.beforeRequestCallback != nil {
-			beforeErrors, _ = maestro.beforeRequestCallback(r)
-			if beforeErrors != nil {
-				SendError(w, 403, beforeErrors)
-				return
-			}
-		}
-
 		modelType := reflect.ValueOf(model).Type()
 		modelNewValue := reflect.New(modelType)
 
@@ -31,9 +22,19 @@ func PatchHandler(model Model, maestro *maestro) http.HandlerFunc {
 		var modelSent map[string]interface{}
 
 		/*
+		 * Middleware Initial
+		 */
+		metaData := MiddlewareMetaData{}
+
+		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_POST)
+		if mwInitial.Error != nil {
+			SendError(w, http.StatusForbidden, *mwInitial.Error)
+		}
+
+		/*
 		 * DB Connection
 		 */
-		db := maestro.dBPoolCallback(r)
+		db := maestro.dBPoolCallback(r, metaData)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return

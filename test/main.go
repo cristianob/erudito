@@ -21,6 +21,7 @@ func main() {
 	router := mux.NewRouter()
 
 	maestro := erudito.CreateMaestro(router, databaseResolve)
+	maestro.AddMiddlewareInitial(SomeInitialMiddleware, erudito.MIDDLEWARE_TYPE_GLOBAL)
 	maestro.AddModel(A{}, erudito.RouteConfig{AcceptGET: true, AcceptPOST: true, AcceptPUT: true, AcceptPATCH: true, AcceptDELETE: true, AcceptCollection: true})
 	maestro.AddModel(B{}, erudito.RouteConfig{AcceptGET: true, AcceptPOST: true, AcceptPUT: true, AcceptPATCH: true, AcceptDELETE: true, AcceptCollection: true})
 	maestro.AddModel(C{}, erudito.RouteConfig{AcceptGET: true, AcceptPOST: true, AcceptPUT: true, AcceptPATCH: true, AcceptDELETE: true, AcceptCollection: true})
@@ -32,23 +33,16 @@ func main() {
 	log.Fatal(http.ListenAndServe(":80", router))
 }
 
-// func beforeRequest(r *http.Request) ([]erudito.JSendErrorDescription, map[string]interface{}) {
-// 	authKey := auth.GetAuthKey(r)
-// 	user := auth.AuthCheck(authKey)
+func SomeInitialMiddleware(data erudito.MiddlewareInitialData) erudito.MiddlewareInitialReturn {
+	log.Println("Before everything!")
 
-// 	if user == nil {
-// 		return []erudito.JSendErrorDescription{
-// 			{
-// 				Code:    "NOT_AUTHORIZED",
-// 				Message: "User not authorized",
-// 			},
-// 		}, nil
-// 	}
+	metaData := data.Meta
+	metaData["Initial"] = "Initial store data here"
 
-// 	r.Header.Set("X-Auth-User", strconv.FormatUint(user.UserID, 10))
-// 	r.Header.Set("X-Auth-Group", strconv.FormatUint(user.UserGroup, 10))
-
-// 	return nil, map[string]interface{}{
-// 		"User": user,
-// 	}
-// }
+	return erudito.MiddlewareInitialReturn{
+		R:     data.R,
+		W:     data.W,
+		Meta:  metaData,
+		Error: nil,
+	}
+}

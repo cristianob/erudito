@@ -13,11 +13,13 @@ import (
 )
 
 type (
+	dbPollCallback func(r *http.Request, metaData MiddlewareMetaData) *gorm.DB
+
 	maestro struct {
-		router                *mux.Router
-		models                map[string]modelStructure
-		beforeRequestCallback func(r *http.Request) ([]JSendErrorDescription, map[string]interface{})
-		dBPoolCallback        func(r *http.Request) *gorm.DB
+		router             *mux.Router
+		models             map[string]modelStructure
+		MiddlewaresInitial []MiddlewareInitial
+		dBPoolCallback     dbPollCallback
 	}
 
 	RouteConfig struct {
@@ -30,11 +32,12 @@ type (
 	}
 )
 
-func CreateMaestro(router *mux.Router, dBPoolCallback func(r *http.Request) *gorm.DB) *maestro {
+func CreateMaestro(router *mux.Router, dBPoolCallback dbPollCallback) *maestro {
 	_maestro := new(maestro)
 	_maestro.router = router.StrictSlash(true)
 	_maestro.dBPoolCallback = dBPoolCallback
 	_maestro.models = map[string]modelStructure{}
+	_maestro.MiddlewaresInitial = []MiddlewareInitial{}
 
 	return _maestro
 }
@@ -51,8 +54,11 @@ func (m *maestro) getModelStructureByName(name string) modelStructure {
 	return m.models[name]
 }
 
-func (m *maestro) SetBeforeRequestCallback(cb func(r *http.Request) ([]JSendErrorDescription, map[string]interface{})) {
-	m.beforeRequestCallback = cb
+func (m *maestro) AddMiddlewareInitial(function MiddlewareInitialFunction, mwType int) {
+	m.MiddlewaresInitial = append(m.MiddlewaresInitial, MiddlewareInitial{
+		Function: function,
+		Type:     mwType,
+	})
 }
 
 func (m *maestro) AddModel(model Model, routeConfig RouteConfig) {
@@ -108,7 +114,7 @@ func (m *maestro) AddHealthCheck() {
 	log.Println("[ERUDITO] Added route GET /health")
 }
 
-func (m *maestro) AddRoute(path, method, name string, handler func(func(r *http.Request) *gorm.DB) http.HandlerFunc) {
+func (m *maestro) AddRoute(path, method, name string, handler func(dbPollCallback) http.HandlerFunc) {
 	m.addRoute(method, path, name, handler(m.dBPoolCallback))
 	log.Println("[ERUDITO] Added route " + method + " " + path)
 }
@@ -272,6 +278,7 @@ func (m *maestro) generateModelStructure(model Model) modelStructure {
 				Type:            FIELD_TYPE_RELATION_COL_IDS,
 				Nullable:        rtrFieldStructure.Nullable,
 				RelationalModel: rtrFieldStructure.RelationalModel,
+				BaseField:       rtrFieldStructure.Name,
 			})
 
 			rtr.Fields = append(rtr.Fields, fieldStructure{
@@ -280,6 +287,7 @@ func (m *maestro) generateModelStructure(model Model) modelStructure {
 				Type:            FIELD_TYPE_RELATION_COL_IDS_UPDATE,
 				Nullable:        rtrFieldStructure.Nullable,
 				RelationalModel: rtrFieldStructure.RelationalModel,
+				BaseField:       rtrFieldStructure.Name,
 			})
 
 			rtr.Fields = append(rtr.Fields, fieldStructure{
@@ -288,14 +296,7 @@ func (m *maestro) generateModelStructure(model Model) modelStructure {
 				Type:            FIELD_TYPE_RELATION_COL_IDS_REPLACE,
 				Nullable:        rtrFieldStructure.Nullable,
 				RelationalModel: rtrFieldStructure.RelationalModel,
-			})
-
-			rtr.Fields = append(rtr.Fields, fieldStructure{
-				Name:            rtrFieldStructure.Name + "IDsRemove",
-				JsonName:        rtrFieldStructure.JsonName + "_ids_remove",
-				Type:            FIELD_TYPE_RELATION_COL_IDS_REPLACE,
-				Nullable:        rtrFieldStructure.Nullable,
-				RelationalModel: rtrFieldStructure.RelationalModel,
+				BaseField:       rtrFieldStructure.Name,
 			})
 
 			rtr.Fields = append(rtr.Fields, fieldStructure{
@@ -304,6 +305,7 @@ func (m *maestro) generateModelStructure(model Model) modelStructure {
 				Type:            FIELD_TYPE_RELATION_COL_MODELS_UPDATE,
 				Nullable:        rtrFieldStructure.Nullable,
 				RelationalModel: rtrFieldStructure.RelationalModel,
+				BaseField:       rtrFieldStructure.Name,
 			})
 
 			rtr.Fields = append(rtr.Fields, fieldStructure{
@@ -312,14 +314,7 @@ func (m *maestro) generateModelStructure(model Model) modelStructure {
 				Type:            FIELD_TYPE_RELATION_COL_MODELS_REPLACE,
 				Nullable:        rtrFieldStructure.Nullable,
 				RelationalModel: rtrFieldStructure.RelationalModel,
-			})
-
-			rtr.Fields = append(rtr.Fields, fieldStructure{
-				Name:            rtrFieldStructure.Name + "Remove",
-				JsonName:        rtrFieldStructure.JsonName + "_remove",
-				Type:            FIELD_TYPE_RELATION_COL_MODELS_REMOVE,
-				Nullable:        rtrFieldStructure.Nullable,
-				RelationalModel: rtrFieldStructure.RelationalModel,
+				BaseField:       rtrFieldStructure.Name,
 			})
 		}
 

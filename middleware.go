@@ -28,36 +28,111 @@ const (
 	MIDDLEWARE_LEVEL_ROOT = 2
 )
 
+type MiddlewareMetaData map[string]interface{}
+
+/*
+ * MIDDLEWARE Initial
+ */
+
 type (
-	MidlewareMetaData map[string]interface{}
+	MiddlewareInitialFunction func(data MiddlewareInitialData) MiddlewareInitialReturn
 
-	MiddlewarePREFunction func(data MiddlewarePREData) MiddlewarePREReturn
+	MiddlewareInitial struct {
+		Function MiddlewareInitialFunction
+		Type     int
+	}
 
-	MiddlewarePRE struct {
-		Function MiddlewarePREFunction
+	MiddlewareInitialData struct {
+		R    *http.Request
+		W    http.ResponseWriter
+		Meta MiddlewareMetaData
+	}
+
+	MiddlewareInitialReturn struct {
+		R     *http.Request
+		W     http.ResponseWriter
+		Meta  MiddlewareMetaData
+		Error *[]JSendErrorDescription
+	}
+)
+
+func MiddlewareInitialCreate(function MiddlewareInitialFunction, Type int, Level int) MiddlewareInitial {
+	return MiddlewareInitial{
+		Function: function,
+		Type:     Type,
+	}
+}
+
+/*
+ * MIDDLEWARE Before
+ */
+
+type (
+	MiddlewareBeforeFunction func(data MiddlewareBeforeData) MiddlewareBeforeReturn
+
+	MiddlewareBefore struct {
+		Function MiddlewareBeforeFunction
 		Type     int
 		Level    int
 	}
 
-	MiddlewarePREData struct {
+	MiddlewareBeforeData struct {
 		R      *http.Request
 		W      http.ResponseWriter
 		DbConn *gorm.DB
-		Meta   MidlewareMetaData
+		Meta   MiddlewareMetaData
 		Model  reflect.Value
 	}
 
-	MiddlewarePREReturn struct {
+	MiddlewareBeforeReturn struct {
 		R     *http.Request
 		W     http.ResponseWriter
-		Meta  MidlewareMetaData
+		Meta  MiddlewareMetaData
 		Model reflect.Value
 		Error *[]JSendErrorDescription
 	}
 )
 
-func MiddlewarePRECreate(function MiddlewarePREFunction, Type int, Level int) MiddlewarePRE {
-	return MiddlewarePRE{
+func MiddlewareBeforeCreate(function MiddlewareBeforeFunction, Type int, Level int) MiddlewareBefore {
+	return MiddlewareBefore{
+		Function: function,
+		Type:     Type,
+		Level:    Level,
+	}
+}
+
+/*
+ * MIDDLEWARE After
+ */
+
+type (
+	MiddlewareAfterFunction func(data MiddlewareAfterData) MiddlewareAfterReturn
+
+	MiddlewareAfter struct {
+		Function MiddlewareAfterFunction
+		Type     int
+		Level    int
+	}
+
+	MiddlewareAfterData struct {
+		R        *http.Request
+		W        http.ResponseWriter
+		DbConn   *gorm.DB
+		Meta     MiddlewareMetaData
+		Response map[string]interface{}
+	}
+
+	MiddlewareAfterReturn struct {
+		R        *http.Request
+		W        http.ResponseWriter
+		Meta     MiddlewareMetaData
+		Response map[string]interface{}
+		Error    *[]JSendErrorDescription
+	}
+)
+
+func MiddlewareAfterCreate(function MiddlewareAfterFunction, Type int, Level int) MiddlewareAfter {
+	return MiddlewareAfter{
 		Function: function,
 		Type:     Type,
 		Level:    Level,

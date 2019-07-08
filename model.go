@@ -20,17 +20,16 @@ const (
 	FIELD_TYPE_RELATION_COL_IDS            = 7
 	FIELD_TYPE_RELATION_COL_IDS_UPDATE     = 8
 	FIELD_TYPE_RELATION_COL_IDS_REPLACE    = 9
-	FIELD_TYPE_RELATION_COL_IDS_REMOVE     = 10
-	FIELD_TYPE_RELATION_COL_MODELS         = 11
-	FIELD_TYPE_RELATION_COL_MODELS_UPDATE  = 12
-	FIELD_TYPE_RELATION_COL_MODELS_REPLACE = 13
-	FIELD_TYPE_RELATION_COL_MODELS_REMOVE  = 14
+	FIELD_TYPE_RELATION_COL_MODELS         = 10
+	FIELD_TYPE_RELATION_COL_MODELS_UPDATE  = 11
+	FIELD_TYPE_RELATION_COL_MODELS_REPLACE = 12
 )
 
 type (
 	Model interface {
 		CRUDOptions() CRUDOptions
-		MiddlewaresPRE() []MiddlewarePRE
+		MiddlewareBefore() []MiddlewareBefore
+		MiddlewareAfter() []MiddlewareAfter
 	}
 
 	FullModel struct {
@@ -68,6 +67,7 @@ type fieldStructure struct {
 	Type            int
 	Nullable        bool
 	RelationalModel string
+	BaseField       string
 }
 
 type modelStructure struct {

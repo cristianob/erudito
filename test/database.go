@@ -1,7 +1,10 @@
 package main
 
 import (
+	"log"
 	"net/http"
+
+	"github.com/cristianob/erudito"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
@@ -28,7 +31,8 @@ func databaseMigrate() {
 	)
 }
 
-func databaseResolve(r *http.Request) *gorm.DB {
+func databaseResolve(r *http.Request, metaData erudito.MiddlewareMetaData) *gorm.DB {
+	log.Println("Resolve received: ", metaData)
 	return dbConn
 }
 

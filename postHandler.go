@@ -11,9 +11,19 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		AddCORSHeaders(w, "POST")
 
 		/*
+		 * Middleware Initial
+		 */
+		metaData := MiddlewareMetaData{}
+
+		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_POST)
+		if mwInitial.Error != nil {
+			SendError(w, http.StatusForbidden, *mwInitial.Error)
+		}
+
+		/*
 		 * DB Connection
 		 */
-		db := maestro.dBPoolCallback(r)
+		db := maestro.dBPoolCallback(r, metaData)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
@@ -32,10 +42,9 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * Generate model and run PRE Middlewares
 		 */
-		var metaData MidlewareMetaData
 		modelType := reflect.ValueOf(modelZero).Type()
 		modelS := maestro.getModelStructure(modelZero)
-		modelGenerated, metaData, err := generatePostModel(w, r, db, modelType, modelS, modelUnmarshal, maestro, metaData, true)
+		modelGenerated, metaData, err := generatePostModel(w, r, db, modelType, modelS, modelUnmarshal, maestro, metaData, MIDDLEWARE_TYPE_POST, true)
 
 		if err != nil {
 			SendError(w, http.StatusForbidden, *err)
@@ -53,7 +62,7 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * Inserting Multiple relation IDs
 		 */
-		modelGenerated, err = insertMultipleRelations(db, modelType, modelS, modelUnmarshal, reflect.ValueOf(modelGenerated).Elem(), maestro, true)
+		modelGenerated, err = insertMultipleRelations(w, r, db, modelType, modelS, modelUnmarshal, reflect.ValueOf(modelGenerated).Elem(), maestro, true)
 
 		if err != nil {
 			SendError(w, http.StatusForbidden, *err)
@@ -63,7 +72,7 @@ func PostHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 * Generate return and run POS Middlewares
 		 */
-		modelGenerated, _, err = generateReturnModel(w, r, db, modelType, modelS, reflect.ValueOf(modelGenerated), maestro, metaData, true)
+		modelGenerated, _, err = generateReturnModel(w, r, db, modelType, modelS, reflect.ValueOf(modelGenerated), maestro, metaData, MIDDLEWARE_TYPE_POST, true)
 
 		if err != nil {
 			SendError(w, http.StatusForbidden, *err)

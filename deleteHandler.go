@@ -9,20 +9,23 @@ func DeleteHandler(model Model, maestro *maestro) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		AddCORSHeaders(w, "DELETE")
 
-		var metaData map[string]interface{}
-		var beforeErrors []JSendErrorDescription
-		if maestro.beforeRequestCallback != nil {
-			beforeErrors, metaData = maestro.beforeRequestCallback(r)
-			if beforeErrors != nil {
-				SendError(w, 403, beforeErrors)
-				return
-			}
-		}
-
 		modelType := reflect.ValueOf(model).Type()
 		modelNew := reflect.New(modelType).Interface()
 
-		db := maestro.dBPoolCallback(r)
+		/*
+		 * Middleware Initial
+		 */
+		metaData := MiddlewareMetaData{}
+
+		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_POST)
+		if mwInitial.Error != nil {
+			SendError(w, http.StatusForbidden, *mwInitial.Error)
+		}
+
+		/*
+		 * DB Connection
+		 */
+		db := maestro.dBPoolCallback(r, metaData)
 		if db == nil {
 			SendSingleError(w, http.StatusInternalServerError, "Database error!", "DATABASE_ERROR")
 			return
@@ -48,7 +51,7 @@ func DeleteHandler(model Model, maestro *maestro) http.HandlerFunc {
 		_, ok := reflect.TypeOf(model).MethodByName("BeforeDELETE")
 		if ok {
 			beforeDELETE := reflect.ValueOf(model).MethodByName("BeforeDELETE").Call([]reflect.Value{
-				reflect.ValueOf(maestro.dBPoolCallback(r)),
+				reflect.ValueOf(maestro.dBPoolCallback(r, metaData)),
 				reflect.ValueOf(r),
 				reflect.ValueOf(modelNew),
 				reflect.ValueOf(metaData),
@@ -72,7 +75,7 @@ func DeleteHandler(model Model, maestro *maestro) http.HandlerFunc {
 				}
 
 				for _, modelRemove := range setDelete {
-					db2 := maestro.dBPoolCallback(r)
+					db2 := maestro.dBPoolCallback(r, metaData)
 					db2.Model(modelNew).Association(modelType.Field(i).Name).Delete(modelRemove.Interface())
 				}
 			}
@@ -86,7 +89,7 @@ func DeleteHandler(model Model, maestro *maestro) http.HandlerFunc {
 				}
 
 				for _, modelRemove := range setDelete {
-					db2 := maestro.dBPoolCallback(r)
+					db2 := maestro.dBPoolCallback(r, metaData)
 					db2.Delete(modelRemove.Interface())
 				}
 			}

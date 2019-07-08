@@ -36,11 +36,17 @@ func (A) CRUDOptions() erudito.CRUDOptions {
 	}
 }
 
-func (A) MiddlewaresPRE() []erudito.MiddlewarePRE {
-	return []erudito.MiddlewarePRE{
+func (A) MiddlewareBefore() []erudito.MiddlewareBefore {
+	return []erudito.MiddlewareBefore{
 		globalMiddleware1,
 		middlewareA1,
 		//blockMiddleware,
+	}
+}
+
+func (A) MiddlewareAfter() []erudito.MiddlewareAfter {
+	return []erudito.MiddlewareAfter{
+		middlewareA2,
 	}
 }
 
@@ -79,11 +85,15 @@ func (B) CRUDOptions() erudito.CRUDOptions {
 	}
 }
 
-func (B) MiddlewaresPRE() []erudito.MiddlewarePRE {
-	return []erudito.MiddlewarePRE{
+func (B) MiddlewareBefore() []erudito.MiddlewareBefore {
+	return []erudito.MiddlewareBefore{
 		globalMiddleware1,
 		middlewareB1,
 	}
+}
+
+func (B) MiddlewareAfter() []erudito.MiddlewareAfter {
+	return []erudito.MiddlewareAfter{}
 }
 
 func (B) TableName() string {
@@ -116,10 +126,14 @@ func (C) CRUDOptions() erudito.CRUDOptions {
 	}
 }
 
-func (C) MiddlewaresPRE() []erudito.MiddlewarePRE {
-	return []erudito.MiddlewarePRE{
+func (C) MiddlewareBefore() []erudito.MiddlewareBefore {
+	return []erudito.MiddlewareBefore{
 		globalMiddleware1,
 	}
+}
+
+func (C) MiddlewareAfter() []erudito.MiddlewareAfter {
+	return []erudito.MiddlewareAfter{}
 }
 
 func (C) TableName() string {
@@ -151,10 +165,14 @@ func (D) CRUDOptions() erudito.CRUDOptions {
 	}
 }
 
-func (D) MiddlewaresPRE() []erudito.MiddlewarePRE {
-	return []erudito.MiddlewarePRE{
+func (D) MiddlewareBefore() []erudito.MiddlewareBefore {
+	return []erudito.MiddlewareBefore{
 		globalMiddleware1,
 	}
+}
+
+func (D) MiddlewareAfter() []erudito.MiddlewareAfter {
+	return []erudito.MiddlewareAfter{}
 }
 
 func (D) TableName() string {
@@ -185,10 +203,14 @@ func (E) CRUDOptions() erudito.CRUDOptions {
 	}
 }
 
-func (E) MiddlewaresPRE() []erudito.MiddlewarePRE {
-	return []erudito.MiddlewarePRE{
+func (E) MiddlewareBefore() []erudito.MiddlewareBefore {
+	return []erudito.MiddlewareBefore{
 		globalMiddleware1,
 	}
+}
+
+func (E) MiddlewareAfter() []erudito.MiddlewareAfter {
+	return []erudito.MiddlewareAfter{}
 }
 
 func (E) TableName() string {
