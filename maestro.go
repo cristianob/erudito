@@ -13,13 +13,13 @@ import (
 )
 
 type (
-	dbPollCallback func(r *http.Request, metaData MiddlewareMetaData) *gorm.DB
+	DbPoolCallback func(r *http.Request, metaData MiddlewareMetaData) *gorm.DB
 
 	maestro struct {
 		router             *mux.Router
 		models             map[string]modelStructure
 		MiddlewaresInitial []MiddlewareInitial
-		dBPoolCallback     dbPollCallback
+		dBPoolCallback     DbPoolCallback
 	}
 
 	RouteConfig struct {
@@ -32,7 +32,7 @@ type (
 	}
 )
 
-func CreateMaestro(router *mux.Router, dBPoolCallback dbPollCallback) *maestro {
+func CreateMaestro(router *mux.Router, dBPoolCallback DbPoolCallback) *maestro {
 	_maestro := new(maestro)
 	_maestro.router = router.StrictSlash(true)
 	_maestro.dBPoolCallback = dBPoolCallback
@@ -114,7 +114,7 @@ func (m *maestro) AddHealthCheck() {
 	log.Println("[ERUDITO] Added route GET /health")
 }
 
-func (m *maestro) AddRoute(path, method, name string, handler func(dbPollCallback) http.HandlerFunc) {
+func (m *maestro) AddRoute(path, method, name string, handler func(DbPoolCallback) http.HandlerFunc) {
 	m.addRoute(method, path, name, handler(m.dBPoolCallback))
 	log.Println("[ERUDITO] Added route " + method + " " + path)
 }

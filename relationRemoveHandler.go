@@ -24,6 +24,7 @@ func RelationRemoveHandler(model1, model2 Model, fieldName string, maestro *maes
 		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_RELATION)
 		if mwInitial.Error != nil {
 			SendError(w, http.StatusForbidden, *mwInitial.Error)
+			return
 		}
 
 		/*

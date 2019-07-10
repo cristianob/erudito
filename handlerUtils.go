@@ -126,12 +126,12 @@ func generatePostModel(w http.ResponseWriter, r *http.Request, db *gorm.DB, mode
 		}
 	}
 
-	response := utilsRunMiddlewareBefore(w, r, db, rtrModel.Elem(), maestro, metaData, middlewareType, root)
+	response := utilsRunMiddlewareBefore(w, r, db, rtrModel, maestro, metaData, middlewareType, root)
 	if response.Error != nil {
 		return nil, nil, response.Error
 	}
 
-	return rtrModel.Interface(), response.Meta, nil
+	return response.Model.Interface(), response.Meta, nil
 }
 
 func generateReturnModel(w http.ResponseWriter, r *http.Request, db *gorm.DB, modelType reflect.Type, modelS modelStructure, modelResponse reflect.Value, maestro *maestro, metaData MiddlewareMetaData, middlewareType int, root bool) (interface{}, MiddlewareMetaData, *[]JSendErrorDescription) {
@@ -398,8 +398,8 @@ func utilsRunMiddlewaresInitial(middlewaresInitial []MiddlewareInitial, w http.R
 }
 
 func utilsRunMiddlewareBefore(w http.ResponseWriter, r *http.Request, db *gorm.DB, model reflect.Value, maestro *maestro, metaData MiddlewareMetaData, middlewareType int, root bool) MiddlewareBeforeReturn {
-	modelValue := model.Interface().(Model)
-	modelMiddlewares := modelValue.MiddlewareBefore()
+	modelMiddlewaresValue := model.MethodByName("MiddlewareBefore").Call([]reflect.Value{})
+	modelMiddlewares := modelMiddlewaresValue[0].Interface().([]MiddlewareBefore)
 
 	mpReturn := MiddlewareBeforeReturn{
 		R:     r,

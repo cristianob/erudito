@@ -24,6 +24,7 @@ func CollectionCountHandler(model Model, maestro *maestro) http.HandlerFunc {
 		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_COLLECTION)
 		if mwInitial.Error != nil {
 			SendError(w, http.StatusForbidden, *mwInitial.Error)
+			return
 		}
 
 		/*

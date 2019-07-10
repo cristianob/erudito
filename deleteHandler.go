@@ -20,6 +20,7 @@ func DeleteHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		mwInitial := utilsRunMiddlewaresInitial(maestro.MiddlewaresInitial, w, r, maestro, metaData, MIDDLEWARE_TYPE_DELETE)
 		if mwInitial.Error != nil {
 			SendError(w, http.StatusForbidden, *mwInitial.Error)
+			return
 		}
 
 		/*
