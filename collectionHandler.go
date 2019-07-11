@@ -49,7 +49,7 @@ func CollectionHandler(modelZero Model, maestro *maestro) http.HandlerFunc {
 		/*
 		 *  MiddlewareAfter
 		 */
-		var rtrSlice []interface{}
+		rtrSlice := []interface{}{}
 		for i := 0; i < modelSlice.Len(); i++ {
 			modelGenerated, _, err := generateReturnModel(w, r, db, modelType, modelS, modelSlice.Index(i), maestro, metaData, MIDDLEWARE_TYPE_COLLECTION, true)
 
