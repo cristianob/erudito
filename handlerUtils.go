@@ -18,7 +18,7 @@ func generatePostModel(w http.ResponseWriter, r *http.Request, db *gorm.DB, mode
 	rtrModel := reflect.New(modelType)
 
 	for key, value := range modelUnmarshal {
-		if key == "id" && !root {
+		if key == "id" && value != nil && !root {
 			var uintVar uint
 			rtrModel.Elem().FieldByName("ID").Set(reflect.ValueOf(value).Convert(reflect.TypeOf(uintVar)))
 		}
@@ -146,11 +146,13 @@ func generateReturnModel(w http.ResponseWriter, r *http.Request, db *gorm.DB, mo
 		mapReturn["id"] = fullModel.(map[string]interface{})["ID"]
 		mapReturn["created_at"] = fullModel.(map[string]interface{})["CreatedAt"]
 		mapReturn["updated_at"] = fullModel.(map[string]interface{})["UpdatedAt"]
+		mapReturn["deleted_at"] = fullModel.(map[string]interface{})["DeletedAt"]
 	}
 
 	if hardDeleteModel, ok := mapResponse["HardDeleteModel"]; ok {
 		mapReturn["id"] = hardDeleteModel.(map[string]interface{})["ID"]
 		mapReturn["created_at"] = hardDeleteModel.(map[string]interface{})["CreatedAt"]
+		mapReturn["updated_at"] = hardDeleteModel.(map[string]interface{})["UpdatedAt"]
 	}
 
 	if simpleModel, ok := mapResponse["SimpleModel"]; ok {
@@ -191,6 +193,11 @@ func generateReturnModel(w http.ResponseWriter, r *http.Request, db *gorm.DB, mo
 				relationalMap := []interface{}{}
 
 				fieldStructValue := modelResponse.FieldByName(field.Name)
+
+				if fieldStructValue.Pointer() == 0 {
+					continue
+				}
+
 				for i := 0; i < fieldStructValue.Len(); i++ {
 					fieldV := fieldStructValue.Index(i)
 
@@ -494,11 +501,17 @@ func utilsTryParseISOTime(str string) (time.Time, error) {
 }
 
 func getDBWithSearchCriterias(db *gorm.DB, r *http.Request, modelNew interface{}, modelType reflect.Type) *gorm.DB {
-	softDeleted, softDeletedOK := r.URL.Query()["del"]
+	unscoped := false
+
+	softDeletedResponse, softDeletedOK := r.URL.Query()["del"]
 	if softDeletedOK {
-		if softDeleted[0] == "true" {
-			db = db.Unscoped()
+		if softDeletedResponse[0] == "true" {
+			unscoped = true
 		}
+	}
+
+	if unscoped {
+		db = db.Unscoped()
 	}
 
 	if order, ok := r.URL.Query()["order"]; ok {
@@ -580,10 +593,8 @@ func getDBWithSearchCriterias(db *gorm.DB, r *http.Request, modelNew interface{}
 
 		for _, rel := range rels {
 			db = db.Preload(upperCamelCase(rel), func(dbPreload *gorm.DB) *gorm.DB {
-				if softDeletedOK {
-					if softDeleted[0] == "true" {
-						dbPreload = dbPreload.Unscoped()
-					}
+				if unscoped {
+					dbPreload = dbPreload.Unscoped()
 				}
 
 				return dbPreload
